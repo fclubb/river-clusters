@@ -1,0 +1,3 @@
+# river-clusters
+
+This repository contains code for clustering rivers in different catchments based on their long profiles.  Work in progress...
