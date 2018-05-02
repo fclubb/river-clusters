@@ -27,13 +27,14 @@ import pandas as pd
 
 #%% create elevation profiles using simple exponential decay, but vary decay constant
 # also plot all profiles
-length_of_profile = 500
+length_of_profile = 1000
 nr_of_profiles = 100
 start_elevation = 200
 noise_level = start_elevation / 20 #noise level at 5% of start_elevation
 distance = np.arange(0,length_of_profile,1)
 exponential_decay_factor = np.random.randint(low=1, high=100, size=(nr_of_profiles))
 elevation_profile_matrix = np.empty((nr_of_profiles, length_of_profile))
+print (elevation_profile_matrix.shape)
 
 plt.clf()
 for i in range(nr_of_profiles):

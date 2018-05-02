@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 from glob import glob
-import seaborn as sns
 import scipy.cluster.hierarchy as hac
 
 def read_river_profile_csv(DataDirectory, fname_prefix):
@@ -26,37 +25,52 @@ def read_river_profile_csv(DataDirectory, fname_prefix):
     return df
 
 #---------------------------------------------------------------------#
-# ANALYSIS FUNCTIONS
+# CLUSTERING FUNCTIONS
 #---------------------------------------------------------------------#
 
 def ClusterProfiles(df):
     """
     Cluster the profiles from the river profile dataframe
-    We will take the dataframe, and create another one in which each column
-    is a different profile.
 
     Args:
         df: pandas dataframe from the river profile csv.
 
     Author: FJC
     """
-    # set up the empty dataframe that will be the basis for the clustering
-    clusterDf = {}
 
-    # Do the clustering
-    Z = hac.linkage(clusterDf, method='single', metric='correlation')
+    # set up the array for clustering
+    source_ids = df['source_id'].unique()
+    n_profiles = len(source_ids)
+    cluster_matrix =
 
-    # Plot dendogram
-    plt.figure(figsize=(25, 10))
-    plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
-    plt.ylabel('distance')
-    hac.dendrogram(
-        Z,
-        leaf_rotation=90.,  # rotates the x axis labels
-        leaf_font_size=8.,  # font size for the x axis labels
-    )
-    plt.show()
+    # # Do the clustering
+    # Z = hac.linkage(clu, method='single', metric='correlation')
+    #
+    # # Plot dendogram
+    # plt.figure(figsize=(25, 10))
+    # plt.title('Hierarchical Clustering Dendrogram')
+    # plt.xlabel('sample index')
+    # plt.ylabel('distance')
+    # hac.dendrogram(
+    #     Z,
+    #     leaf_rotation=90.,  # rotates the x axis labels
+    #     leaf_font_size=8.,  # font size for the x axis labels
+    # )
+    # plt.show()
+
+def ClusterAllTribuatryPlots(DataDirectory, fname_prefix, basin_id):
+    """
+    Cluster the profiles of all the tributaries in a basin.
+
+    Args:
+        DataDirectory: the data directory
+        fname_prefix: name of the DEM without extension
+        basin_id: the junction number of the basin you want to cluster
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs_'+str(basin_id)+'.csv')
+    ClusterProfiles(df)
 
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
@@ -239,7 +253,9 @@ if __name__ == '__main__':
 
     DataDirectory = '/home/clubb/Data_for_papers/river_spaghetti/Pozo/'
     fname_prefix = 'Pozo_DTM'
+    basin_id = 641
     # PlotAllProfiles(DataDirectory,fname_prefix)
     # PlotAllProfilesNormalisedElev(DataDirectory,fname_prefix)
     # PlotAllProfilesNormalised(DataDirectory,fname_prefix)
-    PlotProfilesAllTribuatires(DataDirectory,fname_prefix)
+    #PlotProfilesAllTribuatires(DataDirectory,fname_prefix)
+    ClusterAllTribuatryPlots(DataDirectory,fname_prefix,basin_id)
