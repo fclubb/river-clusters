@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 from glob import glob
+import seaborn as sns
+import scipy.cluster.hierarchy as hac
 
 def read_river_profile_csv(DataDirectory, fname_prefix):
     """
@@ -26,18 +28,35 @@ def read_river_profile_csv(DataDirectory, fname_prefix):
 #---------------------------------------------------------------------#
 # ANALYSIS FUNCTIONS
 #---------------------------------------------------------------------#
-def NormaliseElevationByOutlet(df):
-    """
-    Normalise the elevation of each point on the channel by the
-    outlet elevation
-    """
-    # get the profile IDs
-    river_ids = df['id'].unique()
 
-    for id in river_ids:
-        this_df = df[df['id'] == id]
-        # find the lowest elevation
+def ClusterProfiles(df):
+    """
+    Cluster the profiles from the river profile dataframe
+    We will take the dataframe, and create another one in which each column
+    is a different profile.
 
+    Args:
+        df: pandas dataframe from the river profile csv.
+
+    Author: FJC
+    """
+    # set up the empty dataframe that will be the basis for the clustering
+    clusterDf = {}
+
+    # Do the clustering
+    Z = hac.linkage(clusterDf, method='single', metric='correlation')
+
+    # Plot dendogram
+    plt.figure(figsize=(25, 10))
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.xlabel('sample index')
+    plt.ylabel('distance')
+    hac.dendrogram(
+        Z,
+        leaf_rotation=90.,  # rotates the x axis labels
+        leaf_font_size=8.,  # font size for the x axis labels
+    )
+    plt.show()
 
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
