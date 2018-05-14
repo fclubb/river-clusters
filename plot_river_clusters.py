@@ -10,6 +10,7 @@ import pandas as pd
 from matplotlib import rcParams
 from glob import glob
 import scipy.cluster.hierarchy as hac
+from scipy import stats
 
 def read_river_profile_csv(DataDirectory, fname_prefix):
     """
@@ -57,6 +58,45 @@ def ClusterProfiles(df):
         leaf_font_size=8.,  # font size for the x axis labels
     )
     plt.show()
+
+def CalculateSlope(df, slope_window_size):
+    """
+    This function takes in a dataframe with elevation and distance
+    from source data, and adds a column with the slope of each point
+    fitted over a certain window size.
+
+    Args:
+        df: dataframe
+        slope_window_size (int): total number of points used to calculate
+        slope (INCLUDES the node of interest)
+
+    Author: FJC
+    """
+    dist = df['distance_from_source']
+    elev = df['elevation']
+    slopes = np.empty(len(dist))
+
+    pts_array = np.column_stack((dist,elev))
+
+    slicer = (slope_window_size - 1)/2
+
+    for index, x in enumerate(pts_array):
+        # find the rows above and below relating to the window size
+        this_slice = pts_array[index-slicer:index+slicer+1]
+        if len(this_slice) != 0:
+            # now regress this slice
+            x = this_slice[:,0]
+            y = this_slice[:,1]
+            #print x, y
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+            slopes[index] = abs(slope)
+            #print slope
+        else:
+            slopes[index] = np.nan
+
+    df['slope'] = slopes
+
+    return df
 
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
@@ -266,9 +306,9 @@ def PlotProfilesAllSourcesSlope(DataDirectory,fname_prefix,slope_window_size=3):
         for id in source_ids:
             print ('This id is: ', id)
             this_df = df[df['source_id'] == id]
-            slope = this_df['slope'][this_df['slope'] != -9999]
-            dist =  this_df['distance_from_source'][this_df['slope'] != -9999]
-            ax.plot(dist,slope, lw=1)
+            this_df = CalculateSlope(this_df, slope_window_size)
+            this_df = this_df[this_df['slope'] != np.nan]
+            ax.plot(this_df['distance_from_source'],this_df['slope'], lw=1)
 
         ax.set_xlabel('Distance from source (m)')
         ax.set_ylabel('Gradient')
@@ -310,10 +350,10 @@ def PlotProfilesAllSourcesElev(DataDirectory,fname_prefix,slope_window_size=3):
             this_df = df[df['source_id'] == id]
             source_elev = this_df['elevation'].max()
             this_df['normalised_elev'] = this_df['elevation']/source_elev
-            ax.plot(this_df['distance_from_source'], this_df['normalised_elev'], lw=1)
+            ax.plot(this_df['distance_from_source'], this_df['elevation'], lw=1)
 
         ax.set_xlabel('Distance from source (m)')
-        ax.set_ylabel('$z/{z_{CH}}$')
+        ax.set_ylabel('Elevation (m)')
 
         plt.savefig(DataDirectory+fname_prefix+'_profiles_sources.png', dpi=300)
         plt.clf()
@@ -326,5 +366,6 @@ if __name__ == '__main__':
     # PlotAllProfilesNormalisedElev(DataDirectory,fname_prefix)
     # PlotAllProfilesNormalised(DataDirectory,fname_prefix)
     #PlotProfilesAllTribuatires(DataDirectory,fname_prefix)
-    PlotProfilesAllSourcesSlope(DataDirectory,fname_prefix)
-    PlotProfilesAllSourcesElev(DataDirectory,fname_prefix)
+    slope_window_size = 25
+    PlotProfilesAllSourcesSlope(DataDirectory,fname_prefix, slope_window_size)
+    #PlotProfilesAllSourcesElev(DataDirectory,fname_prefix)
