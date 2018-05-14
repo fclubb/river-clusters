@@ -1,6 +1,8 @@
 #---------------------------------------------------------------------#
-# Code to make cluster plots of river profiles`
-# Developed by Fiona Clubb and Bodo Bookhagen
+# Clustering of river profiles
+# Developed by Fiona Clubb
+#              Bodo Bookhagen
+#              Aljoscha Rheinwalt
 # University of Potsdam
 #---------------------------------------------------------------------#
 
@@ -9,8 +11,10 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 from glob import glob
-import scipy.cluster.hierarchy as hac
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy import stats
+from CorrCoef import Pearson
+import math
 
 def read_river_profile_csv(DataDirectory, fname_prefix):
     """
@@ -25,39 +29,113 @@ def read_river_profile_csv(DataDirectory, fname_prefix):
     df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
     return df
 
+def find_nearest_idx(array,value):
+    """
+    Given a value, find the index of the point in the array which is closest
+    to that value
+    """
+    idx = np.searchsorted(array, value, side="left")
+    if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
+        return idx-1
+    else:
+        return idx
+
 #---------------------------------------------------------------------#
 # ANALYSIS FUNCTIONS
 #---------------------------------------------------------------------#
 
-def ClusterProfiles(df):
+def ResampleProfiles(df, profile_len = 100, step=1):
     """
-    Cluster the profiles from the river profile dataframe
-    We will take the dataframe, and create another one in which each column
-    is a different profile.
+    This function takes the dataframe of river profiles and creates an array
+    that can be used for the time series clustering.  For each profile, the slope
+    is assigned to a common distance step, in metres (default=1m)
 
     Args:
         df: pandas dataframe from the river profile csv.
+        profile_len (int): number of data points in each profile (= distance from source)
+        step (int): step size that you want in metres, default = 1
+
+    Returns: array of size (n_profiles, profile_len) containing the slopes along each profile
 
     Author: FJC
     """
-    # set up the array for clustering
+    # create new array of regularly spaced differences
+    reg_dist = np.arange(0, profile_len, step)
 
+    # find the minimum length that the array can be (profile length/root2)
+    min_length = profile_len/(math.sqrt(2))
 
+    # loop through the dataframe and store the data for each profile as an array of
+    # slopes and distances
+    profiles = []
+    source_ids = df['source_id'].unique()
+    for i, source in enumerate(source_ids):
+        this_df = df[df['source_id'] == source]
+        slopes = this_df['slope'].as_matrix()
+        distances = this_df['distance_from_source'].as_matrix()
+        if (len(slopes) > min_length):
+            profiles.append((distances, slopes))
 
-    # Do the clustering
-    Z = hac.linkage(clusterDf, method='single', metric='correlation')
+    # now create the 2d array to store the data
+    n_profiles = len(profiles)
+    data = np.empty((n_profiles, profile_len))
 
-    # Plot dendogram
-    plt.figure(figsize=(25, 10))
+    # loop through the profiles. For each point in the regularly spaced array,
+    # find the index of the closest point in the distance array. Then use this to
+    # assign the slope to the regularly spaced array
+    for i, p in enumerate(profiles):
+        reg_slope = []
+        for d in reg_dist:
+            idx = find_nearest_idx(p[0], d)
+            reg_slope.append(p[1][idx])
+        data[i] = reg_slope
+
+    return data
+
+def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
+    """
+    Cluster the profiles based on gradient and distance from source.
+    Aggolmerative clustering.
+
+    Args:
+        df: pandas dataframe from the river profile csv.
+        profile_len (int): number of data points in each profile (= distance from source)
+        step (int): the spacing in metres between the data points that you want, default = 1m
+        min_corr (float): minimum correlation threshold for clustering
+
+    Author: AR, FJC
+    """
+    data = ResampleProfiles(df, profile_len, step)
+
+    # we could have a look at the ranks too ..
+    # correlations
+    cc = Pearson(data)
+
+    # distances
+    dd = np.arccos(cc)
+
+    # do agglomerative clustering by stepwise pair matching
+    # based on angle between scalar products of time series
+    ln = linkage(dd, method = 'complete')
+
+    # define threshold for cluster determination
+    thr = np.arccos(min_corr)
+
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
     plt.ylabel('distance')
-    hac.dendrogram(
-        Z,
-        leaf_rotation=90.,  # rotates the x axis labels
-        leaf_font_size=8.,  # font size for the x axis labels
-    )
+    dendrogram(ln)
+    #dendro=dendrogram(
+    #    link,
+    #    leaf_rotation=90.,
+    #    leaf_font_size=8.,
+    #)
+    plt.axhline(y = thr, color = 'r')
     plt.show()
+
+    # compute cluster indices
+    cl = fcluster(ln, thr, criterion = 'distance')
+    print cl.min(), cl.max()
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -367,5 +445,8 @@ if __name__ == '__main__':
     # PlotAllProfilesNormalised(DataDirectory,fname_prefix)
     #PlotProfilesAllTribuatires(DataDirectory,fname_prefix)
     slope_window_size = 25
-    PlotProfilesAllSourcesSlope(DataDirectory,fname_prefix, slope_window_size)
+    df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources1000.csv')
+    df = CalculateSlope(df, slope_window_size)
+    ClusterProfiles(df, profile_len = 1000, step=1, min_corr = 0.5)
+    #PlotProfilesAllSourcesSlope(DataDirectory,fname_prefix, slope_window_size)
     #PlotProfilesAllSourcesElev(DataDirectory,fname_prefix)
