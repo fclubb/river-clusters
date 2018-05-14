@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import rcParams
+import matplotlib.cm as cm
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy import stats
@@ -65,6 +66,9 @@ def ResampleProfiles(df, profile_len = 100, step=1):
     # find the minimum length that the array can be (profile length/root2)
     min_length = profile_len/(math.sqrt(2))
 
+    # create a new dataframe for storing the data about the selected profiles
+    thinned_df = pd.DataFrame()
+
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
     profiles = []
@@ -75,6 +79,7 @@ def ResampleProfiles(df, profile_len = 100, step=1):
         distances = this_df['distance_from_source'].as_matrix()
         if (len(slopes) > min_length):
             profiles.append((distances, slopes))
+            thinned_df = thinned_df.append(this_df)
 
     # now create the 2d array to store the data
     n_profiles = len(profiles)
@@ -90,7 +95,7 @@ def ResampleProfiles(df, profile_len = 100, step=1):
             reg_slope.append(p[1][idx])
         data[i] = reg_slope
 
-    return data
+    return thinned_df, data
 
 def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
     """
@@ -105,7 +110,8 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
 
     Author: AR, FJC
     """
-    data = ResampleProfiles(df, profile_len, step)
+    print ("Now I'm going to do some hierarchical clustering...")
+    thinned_df, data = ResampleProfiles(df, profile_len, step)
 
     # we could have a look at the ranks too ..
     # correlations
@@ -125,17 +131,28 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
     plt.xlabel('sample index')
     plt.ylabel('distance')
     dendrogram(ln)
-    #dendro=dendrogram(
-    #    link,
-    #    leaf_rotation=90.,
-    #    leaf_font_size=8.,
-    #)
+
     plt.axhline(y = thr, color = 'r')
-    plt.show()
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
-    print cl.min(), cl.max()
+    print("I've finished! I found {} clusters for you :)".format(cl.max()))
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # for each cluster, make a plot of slope vs. distance from outlet
+    source_ids = thinned_df['source_id'].unique()
+
+    # colour by cluster
+    colors = cm.rainbow(np.linspace(0, 1, len(cl)))
+
+    for i,id in enumerate(source_ids):
+        thinned_df.loc[thinned_df.source_id==id, 'cluster_id'] = cl[i]
+
+
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -173,6 +190,8 @@ def CalculateSlope(df, slope_window_size):
             slopes[index] = np.nan
 
     df['slope'] = slopes
+
+    print("Got the slope over a window radius of {} m").format(slope_window_size)
 
     return df
 
