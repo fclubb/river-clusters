@@ -18,6 +18,23 @@ from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
 from LSDMapFigure.PlottingRaster import MapFigure
+import sys
+
+#=============================================================================
+# This is just a welcome screen that is displayed if no arguments are provided.
+#=============================================================================
+def print_welcome():
+
+    print("\n\n=======================================================================")
+    print("Hello! I'm going to do some river profile clustering for you.")
+    print("You will need to tell me which directory to look in.")
+    print("Use the -dir flag to define the working directory.")
+    print("If you don't do this I will assume the data is in the same directory as this script.")
+    print("You also need the -fname flag which will give the prefix of the raster files.")
+    print("See our documentation for computing the data needed for these visualisation scripts:")
+    print("For help type:")
+    print("   python plot_river_clusters.py -h\n")
+    print("=======================================================================\n\n ")
 
 def read_river_profile_csv():
     """
@@ -75,9 +92,10 @@ def ResampleProfiles(df, profile_len = 100, step=1):
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
     profiles = []
-    source_ids = df['source_id'].unique()
+    source_ids = df['id'].unique()
     for i, source in enumerate(source_ids):
-        this_df = df[df['source_id'] == source]
+        this_df = df[df['id'] == source]
+        this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         slopes = this_df['slope'].as_matrix()
         distances = this_df['distance_from_source'].as_matrix()
         if (len(slopes) >= min_length):
@@ -98,18 +116,22 @@ def ResampleProfiles(df, profile_len = 100, step=1):
             reg_slope.append(p[1][idx])
         data[i] = reg_slope
 
+
     return thinned_df, data
 
-def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
+def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'):
     """
     Cluster the profiles based on gradient and distance from source.
-    Aggolmerative clustering.
+    Aggolmerative clustering, see here for more info:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html#scipy.cluster.hierarchy.linkage
 
     Args:
         df: pandas dataframe from the river profile csv.
         profile_len (int): number of data points in each profile (= distance from source)
         step (int): the spacing in metres between the data points that you want, default = 1m
         min_corr (float): minimum correlation threshold for clustering
+        method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
+        weighted, 'centroid', 'median', or 'ward'. Default is 'complete'.
 
     Author: AR, FJC
     """
@@ -125,7 +147,7 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
 
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
-    ln = linkage(dd, method = 'complete')
+    ln = linkage(dd, method=method)
 
     # define threshold for cluster determination
     thr = np.arccos(min_corr)
@@ -144,13 +166,13 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5):
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
 
     # for each cluster, make a plot of slope vs. distance from outlet
-    source_ids = thinned_df['source_id'].unique()
+    source_ids = thinned_df['id'].unique()
 
     # colour by cluster
     colors = cm.rainbow(np.linspace(0, 1, len(cl)))
 
     for i,id in enumerate(source_ids):
-        thinned_df.loc[thinned_df.source_id==id, 'cluster_id'] = cl[i]
+        thinned_df.loc[thinned_df.id==id, 'cluster_id'] = cl[i]
 
     return thinned_df
 
@@ -167,29 +189,31 @@ def CalculateSlope(df, slope_window_size):
 
     Author: FJC
     """
-    dist = df['distance_from_source']
-    elev = df['elevation']
-    slopes = np.empty(len(dist))
+    ids = df['id'].unique()
+    for id in ids:
+        dist = df['distance_from_source'][df['id'] == id]
+        elev = df['elevation'][df['id'] == id]
+        slopes = np.empty(len(dist))
 
-    pts_array = np.column_stack((dist,elev))
+        pts_array = np.column_stack((dist,elev))
 
-    slicer = (slope_window_size - 1)/2
+        slicer = (slope_window_size - 1)/2
 
-    for index, x in enumerate(pts_array):
-        # find the rows above and below relating to the window size
-        this_slice = pts_array[index-slicer:index+slicer+1]
-        if len(this_slice) != 0:
-            # now regress this slice
-            x = this_slice[:,0]
-            y = this_slice[:,1]
-            #print x, y
-            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-            slopes[index] = abs(slope)
-            #print slope
-        else:
-            slopes[index] = np.nan
+        for index, x in enumerate(pts_array):
+            # find the rows above and below relating to the window size
+            this_slice = pts_array[index-slicer:index+slicer+1]
+            if len(this_slice) == slope_window_size:
+                # now regress this slice
+                x = this_slice[:,0]
+                y = this_slice[:,1]
+                #print x, y
+                slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+                slopes[index] = abs(slope)
+                #print slope
+            else:
+                slopes[index] = np.nan
 
-    df['slope'] = slopes
+        df.loc[df.id==id, 'slope'] = slopes
 
     print("Got the slope over a window radius of {} m").format(slope_window_size)
 
@@ -224,11 +248,11 @@ def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=1, min_
         df = pd.read_csv(fname)
 
         # get the profile IDs
-        source_ids = df['source_id'].unique()
+        source_ids = df['id'].unique()
 
         for id in source_ids:
             print ('This id is: ', id)
-            this_df = df[df['source_id'] == id]
+            this_df = df[df['id'] == id]
             source_elev = this_df['elevation'].max()
             this_df['normalised_elev'] = this_df['elevation']/source_elev
             ax.plot(this_df['distance_from_source'], this_df['elevation'], lw=1)
@@ -239,7 +263,7 @@ def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=1, min_
         plt.savefig(DataDirectory+fname_prefix+'_profiles_sources.png', dpi=300)
         plt.clf()
 
-def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=0.5):
+def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=0.5, method = 'complete'):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -248,17 +272,19 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
         profile_len (int): number of data points in each profile (= distance from source)
         step (int): the spacing in metres between the data points that you want, default = 1m
         min_corr (float): minimum correlation threshold for clustering
+        method (str): method for performing the clustering
 
     Author: FJC
     """
     # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources1000.csv')
+    #df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources{}.csv'.format(profile_len))
+    df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
 
     # calculate the slope
     df = CalculateSlope(df, slope_window_size)
 
     # do the clustering
-    cluster_df = ClusterProfiles(df, profile_len = 1000, step=1, min_corr = 0.5)
+    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
 
     # find the unique clusters for plotting
     clusters = cluster_df['cluster_id'].unique()
@@ -272,9 +298,9 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
 
         this_df = cluster_df[cluster_df['cluster_id'] == cl]
         cl = int(this_df.iloc[0]['cluster_id'])
-        sources = this_df['source_id'].unique()
+        sources = this_df['id'].unique()
         for src in sources:
-            src_df = this_df[this_df['source_id'] == src]
+            src_df = this_df[this_df['id'] == src]
             src_df = src_df[src_df['slope'] != np.nan]
             ax.plot(src_df['distance_from_source'], src_df['slope'], lw=1, color=colors[cl-1])
 
@@ -291,10 +317,10 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
     ax = fig.add_subplot(gs[5:100,10:95])
 
-    sources = cluster_df['source_id'].unique()
+    sources = cluster_df['id'].unique()
 
     for src in sources:
-        this_df = cluster_df[cluster_df['source_id'] == src]
+        this_df = cluster_df[cluster_df['id'] == src]
         cl = int(this_df.iloc[0]['cluster_id'])
         this_df = this_df[this_df['slope'] != np.nan]
         ax.plot(this_df['distance_from_source'], this_df['slope'], lw=1, color=colors[cl-1])
@@ -342,7 +368,44 @@ def MakeHillshadePlotClusters(cluster_df):
 
 if __name__ == '__main__':
 
-    DataDirectory = '/home/clubb/Data_for_papers/river_spaghetti/Pozo/cat1/'
-    fname_prefix = 'Pozo_cat1_UTM11_WGS84_1m'
-    cluster_df = PlotProfilesByCluster(slope_window_size=25,profile_len=1000,step=1)
+    # If there are no arguments, send to the welcome screen
+    if not len(sys.argv) > 1:
+        full_paramfile = print_welcome()
+        sys.exit()
+
+    # Get the arguments
+    import argparse
+    parser = argparse.ArgumentParser()
+
+    # The location of the data files
+    parser.add_argument("-dir", "--base_directory", type=str, help="The base directory with the m/n analysis. If this isn't defined I'll assume it's the same as the current directory.")
+    parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
+
+    # The options for clustering
+    parser.add_argument("-len", "--profile_len", type=int, help="The length of the profiles, you should have specified this in the parameter file for the spaghetti code. Default is 1000 m.", default=1000)
+    parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
+    parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
+    parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
+    parser.add_argument("-step", "-step", type=int, help="The spacing in metres that you want to resample the profiles to, as they need to have a regular spacing for the clustering algorithms to work.  The default is 1 m.", default = 1)
+
+    args = parser.parse_args()
+
+    if not args.fname_prefix:
+        print("WARNING! You haven't supplied your DEM name. Please specify this with the flag '-fname'")
+        sys.exit()
+    else:
+        fname_prefix = args.fname_prefix
+
+    # get the base directory
+    if args.base_directory:
+        DataDirectory = args.base_directory
+        # check if you remembered a / at the end of your path_name
+        if not DataDirectory.endswith("/"):
+            print("You forgot the '/' at the end of the directory, appending...")
+            DataDirectory = DataDirectory+"/"
+    else:
+        print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
+        DataDirectory = os.getcwd()
+
+    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
     MakeHillshadePlotClusters(cluster_df)
