@@ -155,15 +155,6 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
     # define threshold for cluster determination
     thr = np.arccos(min_corr)
 
-    plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
-    plt.ylabel('distance')
-    dendrogram(ln)
-
-    plt.axhline(y = thr, color = 'r')
-    plt.savefig(DataDirectory+fname_prefix+"_dendrogram.png", dpi=300)
-    plt.clf()
-
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
@@ -171,13 +162,22 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
     # for each cluster, make a plot of slope vs. distance from outlet
     source_ids = thinned_df['id'].unique()
 
-    # colour by cluster
-    colors = cm.rainbow(np.linspace(0, 1, len(cl)))
+
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.xlabel('sample index')
+    plt.ylabel('distance')
+    R = dendrogram(ln)
+    color_list = R['color_list']
+    print color_list
+
+    plt.axhline(y = thr, color = 'r')
+    plt.savefig(DataDirectory+fname_prefix+"_dendrogram.png", dpi=300)
+    plt.clf()
 
     for i,id in enumerate(source_ids):
         thinned_df.loc[thinned_df.id==id, 'cluster_id'] = cl[i]
 
-    return thinned_df
+    return thinned_df, color_list
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -280,14 +280,14 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
     Author: FJC
     """
     # read in the csv
-    #df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources{}.csv'.format(profile_len))
-    df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources{}.csv'.format(profile_len))
+    #df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
 
     # calculate the slope
     df = CalculateSlope(df, slope_window_size)
 
     # do the clustering
-    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
+    cluster_df, color_list = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
 
     # find the unique clusters for plotting
     clusters = cluster_df['cluster_id'].unique()
@@ -302,7 +302,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
         this_df = cluster_df[cluster_df['cluster_id'] == cl]
         cl = int(this_df.iloc[0]['cluster_id'])
         sources = this_df['id'].unique()
-        for src in sources:
+        for idx, src in enumerate(sources):
             src_df = this_df[this_df['id'] == src]
             src_df = src_df[src_df['slope'] != np.nan]
             ax.plot(src_df['distance_from_source'], src_df['slope'], lw=1, color=colors[cl-1])
