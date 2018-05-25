@@ -15,13 +15,15 @@ import pandas as pd
 from matplotlib import rcParams
 import matplotlib.cm as cm
 from glob import glob
-from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
 from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
 from LSDMapFigure.PlottingRaster import MapFigure
 import sys
+from collections import defaultdict
+#import seaborn as sns
 
 #=============================================================================
 # This is just a welcome screen that is displayed if no arguments are provided.
@@ -158,17 +160,16 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
+    print cl
 
-    # for each cluster, make a plot of slope vs. distance from outlet
+    set_link_color_palette(['g', 'r', 'm', 'y', 'k', 'c'])
+
     source_ids = thinned_df['id'].unique()
-
 
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln)
-    color_list = R['color_list']
-    print color_list
+    R = dendrogram(ln, color_threshold=1)
 
     plt.axhline(y = thr, color = 'r')
     plt.savefig(DataDirectory+fname_prefix+"_dendrogram.png", dpi=300)
@@ -176,8 +177,9 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
 
     for i,id in enumerate(source_ids):
         thinned_df.loc[thinned_df.id==id, 'cluster_id'] = cl[i]
+        # write the colour code for this cluster ID
 
-    return thinned_df, color_list
+    return thinned_df
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -287,11 +289,12 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
     df = CalculateSlope(df, slope_window_size)
 
     # do the clustering
-    cluster_df, color_list = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
+    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
 
     # find the unique clusters for plotting
     clusters = cluster_df['cluster_id'].unique()
-    colors = cm.rainbow(np.linspace(0, 1, len(clusters)))
+    # colors = cm.rainbow(np.linspace(0, 1, len(clusters)))
+    colors = ['g', 'r', 'm', 'y', 'k', 'c']
 
     for cl in clusters:
         # set up a figure
@@ -302,10 +305,13 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
         this_df = cluster_df[cluster_df['cluster_id'] == cl]
         cl = int(this_df.iloc[0]['cluster_id'])
         sources = this_df['id'].unique()
-        for idx, src in enumerate(sources):
-            src_df = this_df[this_df['id'] == src]
-            src_df = src_df[src_df['slope'] != np.nan]
-            ax.plot(src_df['distance_from_source'], src_df['slope'], lw=1, color=colors[cl-1])
+        if (len(sources) > 1):
+            for idx, src in enumerate(sources):
+                src_df = this_df[this_df['id'] == src]
+                src_df = src_df[src_df['slope'] != np.nan]
+                ax.plot(src_df['distance_from_source'], src_df['slope'], lw=1, color=colors[cl-1])
+        else:
+            ax.plot(this_df['distance_from_source'], this_df['slope'], lw=1, color='b')
 
         ax.set_xlabel('Distance from source (m)')
         ax.set_ylabel('Gradient (m/m)')
@@ -313,25 +319,6 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
 
         plt.savefig(DataDirectory+fname_prefix+('_profiles_clustered_{}.png').format(int(cl)), dpi=300)
         plt.clf()
-
-    # make one figure coloured by cluster
-    # set up a figure
-    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    ax = fig.add_subplot(gs[5:100,10:95])
-
-    sources = cluster_df['id'].unique()
-
-    for src in sources:
-        this_df = cluster_df[cluster_df['id'] == src]
-        cl = int(this_df.iloc[0]['cluster_id'])
-        this_df = this_df[this_df['slope'] != np.nan]
-        ax.plot(this_df['distance_from_source'], this_df['slope'], lw=1, color=colors[cl-1])
-
-    ax.set_xlabel('Distance from source (m)')
-    ax.set_ylabel('Gradient (m/m)')
-    plt.savefig(DataDirectory+fname_prefix+'_profiles_clustered.png', dpi=300)
-    plt.clf()
 
     # write the clustered dataframe to csv
     cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
