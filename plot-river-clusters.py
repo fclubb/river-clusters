@@ -17,6 +17,7 @@ import matplotlib.cm as cm
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
+from scipy.signal import correlate
 from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
@@ -70,7 +71,7 @@ def find_nearest_idx(array,value):
 # ANALYSIS FUNCTIONS
 #---------------------------------------------------------------------#
 
-def ResampleProfiles(df, profile_len = 100, step=1):
+def ResampleProfiles(df, profile_len = 100, step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
     that can be used for the time series clustering.  For each profile, the slope
@@ -79,20 +80,24 @@ def ResampleProfiles(df, profile_len = 100, step=1):
     Args:
         df: pandas dataframe from the river profile csv.
         profile_len (int): number of data points in each profile (= distance from source)
-        step (int): step size that you want in metres, default = 1
+        step (int): step size that you want in metres. This should be greater than the maximum
+        possible spacing between your points (max_spacing = sqrt(2 * DataRes^2)). Default = 2
+        slope_window_size (int): window over which slope was calculated
 
     Returns: array of size (n_profiles, profile_len) containing the slopes along each profile
 
     Author: FJC
     """
+    print("Resampling the profiles to a common distance step of {} m".format(step))
+    # find the slope radius. We don't calculate slope for the first or last few nodes, which
+    # are below the min required window size. Therefore reg dist needs to be smaller
+    slope_radius = ((slope_window_size-1)/2)
+
     # create new array of regularly spaced differences
-    reg_dist = np.arange(0, profile_len, step)
+    reg_dist = np.arange(slope_radius+step, profile_len-(slope_radius), step)
 
     # find the minimum length that the array can be (profile length/root2)
     min_length = profile_len/(math.sqrt(2))
-
-    # create a new dataframe for storing the data about the selected profiles
-    thinned_df = pd.DataFrame()
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
@@ -104,37 +109,86 @@ def ResampleProfiles(df, profile_len = 100, step=1):
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         slopes = this_df['slope'].as_matrix()
         distances = this_df['distance_from_source'].as_matrix()
-        drainage_areas = this_df['drainage_areas']
         if (len(slopes) >= min_length):
-            profiles.append((distances, slopes, drainage_areas))
-            thinned_df = thinned_df.append(this_df)
+            profiles.append((distances, slopes))
+            #thinned_df = thinned_df.append(this_df)
             final_sources.append(source)
 
     # now create the 2d array to store the data
     n_profiles = len(profiles)
-    data = np.empty((n_profiles, profile_len))
+    data = np.empty((n_profiles, len(reg_dist)))
+
+    # create a new dataframe for storing the data about the selected profiles
+    thinned_df = pd.DataFrame()
 
     # loop through the profiles. For each point in the regularly spaced array,
     # find the index of the closest point in the distance array. Then use this to
     # assign the slope to the regularly spaced array
     for i, p in enumerate(profiles):
         reg_slope = []
-        reg_dist = []
-        reg_area = []
         for d in reg_dist:
             idx = find_nearest_idx(p[0], d)
             reg_slope.append(p[1][idx])
-            reg_area.append(p[2][idx])
+            # get this distance and append the regular distance to the thinned df
+            thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_source'] == p[0][idx])])
+        thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'resampled_dist'] = reg_dist
         data[i] = reg_slope
-        reg_df['resampled_dist'] = reg_dist
 
-
-    # assign the reg dist to
+    # write the thinned_df to output in case we want to reload
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
 
 
     return thinned_df, data, final_sources
 
-def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'):
+def ShiftProfiles(thinned_df, shift_steps=5):
+    """
+    Shift the profiles by a certain number of steps backwards and forwards compared
+    to a reference profile. Check the correlation of each, and take the max correlation.
+
+        Args:
+        thinned_df: the dataframe of the profiles with the resampled distances
+        shift_steps: the number of steps to check for the correlation. Default = 5 steps.
+
+    Author: FJC
+    """
+    # get the source ids of each profile
+    sources = thinned_df['id'].unique()
+    # take the first profile to be the reference. This is arbitrary
+    ref_df = thinned_df[thinned_df['id'] == sources[0]]
+    y = ref_df.slope.as_matrix()
+    print y
+
+    # array to work out the indexes for shifting the data. We want to shift both
+    # forwards and backwards
+    shift_array = np.arange(-shift_steps,shift_steps+1,1)
+
+    # shift each profile and check each correlation to the ref_df
+    for src in sources:
+        print('source = ', src)
+        src_df = thinned_df[thinned_df['id'] == src]
+        new_y = src_df.slope.as_matrix()
+        correlations = []
+        for i,shift in enumerate(shift_array):
+            # now shift the slopes
+            print('shift = ', shift)
+            if shift < 0:
+                y2 = new_y[abs(shift):]
+                y1 = y[:shift]
+            if shift > 0:
+                y2 = new_y[:-shift]
+                y1 = y[shift:]
+                print y1
+                print y2
+            else:
+                y1 = y
+                y2 = new_y
+            correlations.append(stats.pearsonr(y1,y2)[0])
+        # # find the maximum correlations
+        print correlations
+
+
+
+def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
     Cluster the profiles based on gradient and distance from source.
     Aggolmerative clustering, see here for more info:
@@ -150,9 +204,8 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
 
     Author: AR, FJC
     """
-    print ("Now I'm going to do some hierarchical clustering...")
     thinned_df, data, final_sources = ResampleProfiles(df, profile_len, step)
-
+    print ("Now I'm going to do some hierarchical clustering...")
     # we could have a look at the ranks too ..
     # correlations
     cc = Pearson(data)
@@ -172,16 +225,16 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
     print cl
 
-    set_link_color_palette(['g', 'r', 'm', 'y', 'k', 'c'])
+    set_link_color_palette(colors)
 
     source_ids = thinned_df['id'].unique()
 
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=1)
+    R = dendrogram(ln, color_threshold=1, above_threshold_color='k')
 
-    plt.axhline(y = thr, color = 'r')
+    plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_dendrogram.png", dpi=300)
     plt.clf()
 
@@ -238,7 +291,7 @@ def CalculateSlope(df, slope_window_size):
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
 
-def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=1, min_corr=0.5):
+def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=2, min_corr=0.5):
     """
     Function to make a plot of all the channels coloured by source
 
@@ -278,7 +331,7 @@ def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=1, min_
         plt.savefig(DataDirectory+fname_prefix+'_profiles_sources.png', dpi=300)
         plt.clf()
 
-def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=0.5, method = 'complete'):
+def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=0.5, method = 'complete'):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -299,12 +352,10 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
     df = CalculateSlope(df, slope_window_size)
 
     # do the clustering
-    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=1, min_corr = min_corr, method = method)
+    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
 
     # find the unique clusters for plotting
     clusters = cluster_df['cluster_id'].unique()
-    # colors = cm.rainbow(np.linspace(0, 1, len(clusters)))
-    colors = ['g', 'r', 'm', 'y', 'k', 'c']
 
     for cl in clusters:
         # set up a figure
@@ -319,9 +370,9 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=1, min_corr=
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['distance_from_source'], src_df['slope'], lw=1, color=colors[cl-1])
+                ax.plot(src_df['resampled_dist'], src_df['slope'], lw=1, color=colors[cl-1])
         else:
-            ax.plot(this_df['distance_from_source'], this_df['slope'], lw=1, color='b')
+            ax.plot(this_df['resampled_dist'], this_df['slope'], lw=1, color='k')
 
         ax.set_xlabel('Distance from source (m)')
         ax.set_ylabel('Gradient (m/m)')
@@ -386,7 +437,7 @@ if __name__ == '__main__':
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
-    parser.add_argument("-step", "-step", type=int, help="The spacing in metres that you want to resample the profiles to, as they need to have a regular spacing for the clustering algorithms to work.  The default is 1 m.", default = 1)
+    parser.add_argument("-step", "-step", type=int, help="The spacing in metres that you want to resample the profiles to, as they need to have a regular spacing for the clustering algorithms to work.  The default is 1 m.", default = 2)
 
     args = parser.parse_args()
 
@@ -407,5 +458,10 @@ if __name__ == '__main__':
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
 
-    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
-    MakeHillshadePlotClusters(cluster_df)
+    # set colour palette: 6 class Dark 2 from http://colorbrewer2.org
+    colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02']
+
+    thinned_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_resampled.csv')
+    ShiftProfiles(thinned_df)
+    #cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+    # MakeHillshadePlotClusters(cluster_df)
