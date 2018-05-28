@@ -98,14 +98,17 @@ def ResampleProfiles(df, profile_len = 100, step=1):
     # slopes and distances
     profiles = []
     source_ids = df['id'].unique()
+    final_sources = []
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         slopes = this_df['slope'].as_matrix()
         distances = this_df['distance_from_source'].as_matrix()
+        drainage_areas = this_df['drainage_areas']
         if (len(slopes) >= min_length):
-            profiles.append((distances, slopes))
+            profiles.append((distances, slopes, drainage_areas))
             thinned_df = thinned_df.append(this_df)
+            final_sources.append(source)
 
     # now create the 2d array to store the data
     n_profiles = len(profiles)
@@ -116,13 +119,20 @@ def ResampleProfiles(df, profile_len = 100, step=1):
     # assign the slope to the regularly spaced array
     for i, p in enumerate(profiles):
         reg_slope = []
+        reg_dist = []
+        reg_area = []
         for d in reg_dist:
             idx = find_nearest_idx(p[0], d)
             reg_slope.append(p[1][idx])
+            reg_area.append(p[2][idx])
         data[i] = reg_slope
+        reg_df['resampled_dist'] = reg_dist
 
 
-    return thinned_df, data
+    # assign the reg dist to
+
+
+    return thinned_df, data, final_sources
 
 def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'):
     """
@@ -141,7 +151,7 @@ def ClusterProfiles(df, profile_len=100, step=1, min_corr=0.5, method='complete'
     Author: AR, FJC
     """
     print ("Now I'm going to do some hierarchical clustering...")
-    thinned_df, data = ResampleProfiles(df, profile_len, step)
+    thinned_df, data, final_sources = ResampleProfiles(df, profile_len, step)
 
     # we could have a look at the ranks too ..
     # correlations
