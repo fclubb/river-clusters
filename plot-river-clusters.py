@@ -42,19 +42,9 @@ def print_welcome():
     print("   python plot_river_clusters.py -h\n")
     print("=======================================================================\n\n ")
 
-def read_river_profile_csv():
-    """
-    Function to read in a csv file with the river profile data
-
-    Args:
-        DataDirectory (str): the data directory
-        fname_prefix (str): the filename of the DEM without extension
-
-    Author: FJC
-    """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
-    return df
-
+#---------------------------------------------------------------------#
+# ANALYSIS FUNCTIONS
+#---------------------------------------------------------------------#
 def find_nearest_idx(array,value):
     """
     Given a value, find the index of the point in the array which is closest
@@ -66,10 +56,6 @@ def find_nearest_idx(array,value):
         return idx-1
     else:
         return idx
-
-#---------------------------------------------------------------------#
-# ANALYSIS FUNCTIONS
-#---------------------------------------------------------------------#
 
 def ResampleProfiles(df, profile_len = 100, step=2, slope_window_size=25):
     """
@@ -138,7 +124,7 @@ def ResampleProfiles(df, profile_len = 100, step=2, slope_window_size=25):
     thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
 
 
-    return thinned_df, data, final_sources
+    return thinned_df, data
 
 def ShiftProfiles(thinned_df, shift_steps=5):
     """
@@ -151,42 +137,46 @@ def ShiftProfiles(thinned_df, shift_steps=5):
 
     Author: FJC
     """
+    print("Shifting the profiles based on their maximum correlation...")
     # get the source ids of each profile
     sources = thinned_df['id'].unique()
     # take the first profile to be the reference. This is arbitrary
     ref_df = thinned_df[thinned_df['id'] == sources[0]]
     y = ref_df.slope.as_matrix()
-    print y
 
     # array to work out the indexes for shifting the data. We want to shift both
     # forwards and backwards
     shift_array = np.arange(-shift_steps,shift_steps+1,1)
 
+    shifted_df = pd.DataFrame()
+
     # shift each profile and check each correlation to the ref_df
     for src in sources:
-        print('source = ', src)
         src_df = thinned_df[thinned_df['id'] == src]
-        new_y = src_df.slope.as_matrix()
-        correlations = []
-        for i,shift in enumerate(shift_array):
-            # now shift the slopes
-            print('shift = ', shift)
-            if shift < 0:
-                y2 = new_y[abs(shift):]
-                y1 = y[:shift]
-            if shift > 0:
-                y2 = new_y[:-shift]
-                y1 = y[shift:]
-                print y1
-                print y2
-            else:
-                y1 = y
-                y2 = new_y
-            correlations.append(stats.pearsonr(y1,y2)[0])
-        # # find the maximum correlations
-        print correlations
+        if src != sources[0]:
+            new_y = src_df.slope.as_matrix()
+            correlations = []
+            for i,shift in enumerate(shift_array):
+                # now shift the slopes
+                if shift < 0:
+                    y2 = new_y[abs(shift):]
+                    y1 = y[:shift]
+                if shift > 0:
+                    y2 = new_y[:-shift]
+                    y1 = y[shift:]
+                else:
+                    y1 = y
+                    y2 = new_y
+                correlations.append(stats.pearsonr(y1,y2)[0])
+            # find the maximum correlations
+            best_shift = shift_array[np.argmax(correlations)]
 
+            # for this source, now shift the dataframe column by this amount.
+            src_df.slope = src_df.slope.shift(best_shift)
+        # append the shifted df to the master
+        shifted_df = shifted_df.append(src_df)
 
+        shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
 
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
@@ -200,12 +190,17 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
         step (int): the spacing in metres between the data points that you want, default = 1m
         min_corr (float): minimum correlation threshold for clustering
         method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
-        weighted, 'centroid', 'median', or 'ward'. Default is 'complete'.
+        'weighted', 'centroid', 'median', or 'ward'. Default is 'complete'.
 
     Author: AR, FJC
     """
-    thinned_df, data, final_sources = ResampleProfiles(df, profile_len, step)
     print ("Now I'm going to do some hierarchical clustering...")
+
+    # get the data from the dataframe into the right format for clustering
+
+    data = np.empty((n_profiles, len(reg_dist)))
+
+
     # we could have a look at the ranks too ..
     # correlations
     cc = Pearson(data)
@@ -345,11 +340,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     Author: FJC
     """
     # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources{}.csv'.format(profile_len))
-    #df = pd.read_csv(DataDirectory+fname_prefix+'_spaghetti_profiles.csv')
-
-    # calculate the slope
-    df = CalculateSlope(df, slope_window_size)
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
 
     # do the clustering
     cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
@@ -385,6 +376,48 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
 
     return cluster_df
+
+def PlotProfileShifting():
+    """
+    Make a plot of the profiles before and after they were shifted
+    for checking
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
+    shifted_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+
+    sources = df['id'].unique()
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    for src in sources:
+        this_df = df[df['id'] == src]
+        ax.plot(this_df['resampled_dist'], this_df['slope'])
+
+        ax.set_xlabel('Distance from source (m)')
+        ax.set_ylabel('Gradient (m/m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_resampled.png'), dpi=300)
+    plt.clf()
+
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    for src in sources:
+        this_shifted_df = shifted_df[shifted_df['id'] == src]
+        ax.plot(this_shifted_df['resampled_dist'], this_shifted_df['slope'])
+
+        ax.set_xlabel('Distance from source (m)')
+        ax.set_ylabel('Gradient (m/m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_shifted.png'), dpi=300)
+    plt.clf()
+
 
 def MakeHillshadePlotClusters(cluster_df):
     """
@@ -438,6 +471,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
     parser.add_argument("-step", "-step", type=int, help="The spacing in metres that you want to resample the profiles to, as they need to have a regular spacing for the clustering algorithms to work.  The default is 1 m.", default = 2)
+    parser.add_argument("-shift", "--shift_steps", type=int, help="The number of steps that you want to shift the profiles by to prior to clustering. The default is 50. You can get the shift in metres by multiplying the shift steps by the spacing for the resampled profiles (e.g. 50 with a step of 2 will be 100 m for testing the shift). Default = 50 steps", default = 50)
 
     args = parser.parse_args()
 
@@ -461,7 +495,21 @@ if __name__ == '__main__':
     # set colour palette: 6 class Dark 2 from http://colorbrewer2.org
     colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02']
 
-    thinned_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_resampled.csv')
-    ShiftProfiles(thinned_df)
-    #cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
-    # MakeHillshadePlotClusters(cluster_df)
+    # check to see if you have ran the analyses before
+    resampled_csv = DataDirectory+args.fname_prefix+'_profiles_resampled.csv'
+    shifted_csv = DataDirectory+args.fname_prefix+'_profiles_shifted.csv'
+    if not shifted_csv.exists():
+        if not resampled_csv.exists():
+            # read in the original csv
+            df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
+            # calculate the slope
+            df = CalculateSlope(df, args.slope_window)
+            # resample the profiles to a common distance frame
+            resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=step, slope_window_size=args.slope_window)
+        # shift the profiles to reduce lag
+        ShiftProfiles(resample_df,shift_steps=args.shift_steps)
+        PlotProfileShifting()
+
+    # now do the clustering
+    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+    MakeHillshadePlotClusters(cluster_df)
