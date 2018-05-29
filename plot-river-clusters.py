@@ -207,7 +207,6 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
         this_df = df[df['id'] == src]
 
         data[i] = this_df['slope']
-    print data
 
     # we could have a look at the ranks too ..
     # correlations
@@ -489,7 +488,6 @@ def PlotMedianProfiles():
     # for each cluster, get the mean gradient for each resampled distance
     for cl in clusters:
         cluster_df = df[df.cluster_id == cl]
-        sources = cluster_df.id.unique()
         median_gradients = [cluster_df[cluster_df.resampled_dist == x].slope.median() for x in dist_array]
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
@@ -509,7 +507,6 @@ def PlotMedianProfiles():
     # for each cluster, get the mean gradient for each resampled distance
     for cl in clusters:
         cluster_df = df[df.cluster_id == cl]
-        sources = cluster_df.id.unique()
         median_elevs = [cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array]
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
@@ -520,6 +517,59 @@ def PlotMedianProfiles():
 
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     plt.clf()
+
+def MakeSlopeAreaPlots():
+    """
+    Function to make a plot of gradient against drainage area for each cluster.
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
+
+    # find out some info
+    clusters = df.cluster_id.unique()
+    sources = df.id.unique()
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # for each cluster, get the median gradient for a SA plot
+    for cl in clusters:
+        cluster_df = df[df.cluster_id == cl]
+        # get the drainage area bins
+        max_area = cluster_df.drainage_area.max()
+        median_gradients = [cluster_df[cluster_df.drainage_area == x].slope.median() for x in drainage_area]
+        # get the colour from the dataframe
+        this_colour = str(cluster_df.colour.unique()[0])
+        ax.scatter(drainage_area,median_gradients,color=this_colour, lw=1)
+
+    ax.set_xlabel('Drainage area (m$^2$)')
+    ax.set_ylabel('Gradient (m/m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_slope_area_median.png'), dpi=300)
+    plt.clf()
+
+
+    # # for each cluster, get the mean gradient for each resampled distance
+    # for cl in clusters:
+    #     # set up a figure
+    #     fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    #     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    #     ax = fig.add_subplot(gs[5:100,10:95])
+    #
+    #     cluster_df = df[df.cluster_id == cl]
+    #     median_elevs = [cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array]
+    #     # get the colour from the dataframe
+    #     this_colour = str(cluster_df.colour.unique()[0])
+    #     ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
+    #
+    # ax.set_xlabel('Distance from source (m)')
+    # ax.set_ylabel('Elevation (m)')
+    #
+    # plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
+    # plt.clf()
 
 
 if __name__ == '__main__':
@@ -591,3 +641,4 @@ if __name__ == '__main__':
 
     PlotMedianProfiles()
     MakeHillshadePlotClusters()
+    MakeSlopeAreaPlots()
