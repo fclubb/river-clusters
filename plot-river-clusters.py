@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 import matplotlib.cm as cm
+from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
@@ -204,6 +205,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
+
         data[i] = this_df['slope']
     print data
 
@@ -228,7 +230,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
 
     set_link_color_palette(colors)
 
-    source_ids = thinned_df['id'].unique()
+    source_ids = df['id'].unique()
 
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
@@ -240,10 +242,10 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     plt.clf()
 
     for i,id in enumerate(source_ids):
-        thinned_df.loc[thinned_df.id==id, 'cluster_id'] = cl[i]
+        df.loc[df.id==id, 'cluster_id'] = cl[i]
         # write the colour code for this cluster ID
 
-    return thinned_df
+    return df
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -346,7 +348,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     Author: FJC
     """
     # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
 
     # do the clustering
     cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
@@ -368,8 +370,12 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
                 ax.plot(src_df['resampled_dist'], src_df['slope'], lw=1, color=colors[cl-1])
+                # save the colour to the cluster dataframe for later plots
+                cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[cl-1]
         else:
             ax.plot(this_df['resampled_dist'], this_df['slope'], lw=1, color='k')
+            # save the colour to the cluster dataframe for later plots
+            cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = 'k'
 
         ax.set_xlabel('Distance from source (m)')
         ax.set_ylabel('Gradient (m/m)')
@@ -402,10 +408,10 @@ def PlotProfileShifting():
 
     for src in sources:
         this_df = df[df['id'] == src]
-        ax.plot(this_df['resampled_dist'], this_df['slope'])
+        ax.plot(this_df['resampled_dist'], this_df['slope'], lw=0.5)
 
-        ax.set_xlabel('Distance from source (m)')
-        ax.set_ylabel('Gradient (m/m)')
+    ax.set_xlabel('Distance from source (m)')
+    ax.set_ylabel('Gradient (m/m)')
 
     plt.savefig(DataDirectory+fname_prefix+('_profiles_resampled.png'), dpi=300)
     plt.clf()
@@ -416,16 +422,16 @@ def PlotProfileShifting():
 
     for src in sources:
         this_shifted_df = shifted_df[shifted_df['id'] == src]
-        ax.plot(this_shifted_df['resampled_dist'], this_shifted_df['slope'])
+        ax.plot(this_shifted_df['resampled_dist'], this_shifted_df['slope'], lw=0.5)
 
-        ax.set_xlabel('Distance from source (m)')
-        ax.set_ylabel('Gradient (m/m)')
+    ax.set_xlabel('Distance from source (m)')
+    ax.set_ylabel('Gradient (m/m)')
 
     plt.savefig(DataDirectory+fname_prefix+('_profiles_shifted.png'), dpi=300)
     plt.clf()
 
 
-def MakeHillshadePlotClusters(cluster_df):
+def MakeHillshadePlotClusters():
     """
     Make a shaded relief plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
@@ -435,6 +441,7 @@ def MakeHillshadePlotClusters(cluster_df):
 
     Author: FJC
     """
+    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
     # Set up fonts for plots
     label_size = 10
     rcParams['font.family'] = 'sans-serif'
@@ -451,9 +458,68 @@ def MakeHillshadePlotClusters(cluster_df):
 
     # create the map figure
     MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km")
-    ChannelPoints = LSDP.LSDMap_PointData(cluster_df, data_type = "pandas", PANDEX = True)
-    MF.add_point_data(ChannelPoints,show_colourbar="False",zorder=100, column_for_plotting='cluster_id', this_colourmap = cm.rainbow, manual_size=2)
+    clusters = cluster_df.cluster_id.unique()
+    for cl in clusters:
+        this_df = cluster_df[cluster_df.cluster_id == cl]
+        this_colour = str(this_df.colour.unique()[0])
+        ChannelPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
+        MF.add_point_data(ChannelPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
+
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters.png', FigFormat='png', Fig_dpi = 300) # Save the figure
+
+def PlotMedianProfiles():
+    """
+    Make a summary plot showing the median profile for each cluster, both in
+    gradient-distance and elevation-distance space.
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
+
+    # find out some info
+    clusters = df.cluster_id.unique()
+    sources = df.id.unique()
+    dist_array = df[df.id == sources[0]].resampled_dist.as_matrix()
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # for each cluster, get the mean gradient for each resampled distance
+    for cl in clusters:
+        cluster_df = df[df.cluster_id == cl]
+        sources = cluster_df.id.unique()
+        median_gradients = [cluster_df[cluster_df.resampled_dist == x].slope.median() for x in dist_array]
+        # get the colour from the dataframe
+        this_colour = str(cluster_df.colour.unique()[0])
+        ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
+
+    ax.set_xlabel('Distance from source (m)')
+    ax.set_ylabel('Gradient (m/m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_median.png'), dpi=300)
+    plt.clf()
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # for each cluster, get the mean gradient for each resampled distance
+    for cl in clusters:
+        cluster_df = df[df.cluster_id == cl]
+        sources = cluster_df.id.unique()
+        median_elevs = [cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array]
+        # get the colour from the dataframe
+        this_colour = str(cluster_df.colour.unique()[0])
+        ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
+
+    ax.set_xlabel('Distance from source (m)')
+    ax.set_ylabel('Elevation (m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
+    plt.clf()
 
 
 if __name__ == '__main__':
@@ -500,22 +566,28 @@ if __name__ == '__main__':
 
     # set colour palette: 6 class Dark 2 from http://colorbrewer2.org
     colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02']
+    cmap_name = 'Dark2'
+    dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
 
     # check to see if you have ran the analyses before
     resampled_csv = DataDirectory+args.fname_prefix+'_profiles_resampled.csv'
     shifted_csv = DataDirectory+args.fname_prefix+'_profiles_shifted.csv'
-    if not os.path.isfile(shifted_csv):
-        if not os.path.isfile(resampled_csv):
-            # read in the original csv
-            df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
-            # calculate the slope
-            df = CalculateSlope(df, args.slope_window)
-            # resample the profiles to a common distance frame
-            resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
-        # shift the profiles to reduce lag
-        ShiftProfiles(resample_df,shift_steps=args.shift_steps)
-        PlotProfileShifting()
+    clustered_csv = DataDirectory+args.fname_prefix+'_profiles_clustered.csv'
+    if not os.path.isfile(clustered_csv):
+        if not os.path.isfile(shifted_csv):
+            if not os.path.isfile(resampled_csv):
+                # read in the original csv
+                df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
+                # calculate the slope
+                df = CalculateSlope(df, args.slope_window)
+                # resample the profiles to a common distance frame
+                resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
+            # shift the profiles to reduce lag
+            ShiftProfiles(resample_df,shift_steps=args.shift_steps)
+            PlotProfileShifting()
 
-    # now do the clustering
-    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
-    MakeHillshadePlotClusters(cluster_df)
+        # now do the clustering
+        cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+
+    PlotMedianProfiles()
+    MakeHillshadePlotClusters()
