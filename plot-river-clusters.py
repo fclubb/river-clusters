@@ -24,6 +24,7 @@ import LSDPlottingTools as LSDP
 from LSDMapFigure.PlottingRaster import MapFigure
 import sys
 from collections import defaultdict
+import os
 #import seaborn as sns
 
 #=============================================================================
@@ -197,9 +198,14 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     print ("Now I'm going to do some hierarchical clustering...")
 
     # get the data from the dataframe into the right format for clustering
+    sources = df['id'].unique()
+    pts_in_profile = len(df[df['id'] == sources[0]])
+    data = np.empty((len(sources), pts_in_profile))
 
-    data = np.empty((n_profiles, len(reg_dist)))
-
+    for i, src in enumerate(sources):
+        this_df = df[df['id'] == src]
+        data[i] = this_df['slope']
+    print data
 
     # we could have a look at the ranks too ..
     # correlations
@@ -498,14 +504,14 @@ if __name__ == '__main__':
     # check to see if you have ran the analyses before
     resampled_csv = DataDirectory+args.fname_prefix+'_profiles_resampled.csv'
     shifted_csv = DataDirectory+args.fname_prefix+'_profiles_shifted.csv'
-    if not shifted_csv.exists():
-        if not resampled_csv.exists():
+    if not os.path.isfile(shifted_csv):
+        if not os.path.isfile(resampled_csv):
             # read in the original csv
             df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
             # calculate the slope
             df = CalculateSlope(df, args.slope_window)
             # resample the profiles to a common distance frame
-            resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=step, slope_window_size=args.slope_window)
+            resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
         # shift the profiles to reduce lag
         ShiftProfiles(resample_df,shift_steps=args.shift_steps)
         PlotProfileShifting()
