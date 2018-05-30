@@ -377,7 +377,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
             cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = 'k'
 
         ax.set_xlabel('Distance from source (m)')
-        ax.set_ylabel('Gradient (m/m)')
+        ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
         plt.savefig(DataDirectory+fname_prefix+('_profiles_clustered_{}.png').format(int(cl)), dpi=300)
@@ -481,23 +481,33 @@ def PlotMedianProfiles():
     dist_array = df[df.id == sources[0]].resampled_dist.as_matrix()
 
     # set up a figure
-    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    ax = fig.add_subplot(gs[5:100,10:95])
+    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
     # for each cluster, get the mean gradient for each resampled distance
-    for cl in clusters:
+    for i, cl in enumerate(clusters):
+
         cluster_df = df[df.cluster_id == cl]
-        median_gradients = [cluster_df[cluster_df.resampled_dist == x].slope.median() for x in dist_array]
+        median_gradients = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.median() for x in dist_array])
+        lower_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.quantile(0.25) for x in dist_array])
+        upper_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
-        ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
+        ax[i].plot(dist_array,median_gradients,color=this_colour, lw=1)
+        ax[i].fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
 
-    ax.set_xlabel('Distance from source (m)')
-    ax.set_ylabel('Gradient (m/m)')
+    # set axis labels
+    plt.xlabel('Distance from source (m)')
+    plt.ylabel('Gradient')
 
+    # save and clear the figure
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median.png'), dpi=300)
     plt.clf()
+    plt.cla()
+    plt.close()
 
     # set up a figure
     fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
@@ -507,10 +517,13 @@ def PlotMedianProfiles():
     # for each cluster, get the mean gradient for each resampled distance
     for cl in clusters:
         cluster_df = df[df.cluster_id == cl]
-        median_elevs = [cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array]
+        median_elevs = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array])
+        lower_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.quantile(0.25) for x in dist_array])
+        upper_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
+        ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
 
     ax.set_xlabel('Distance from source (m)')
     ax.set_ylabel('Elevation (m)')
