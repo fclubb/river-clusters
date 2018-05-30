@@ -39,7 +39,6 @@ def print_welcome():
     print("Use the -dir flag to define the working directory.")
     print("If you don't do this I will assume the data is in the same directory as this script.")
     print("You also need the -fname flag which will give the prefix of the raster files.")
-    print("See our documentation for computing the data needed for these visualisation scripts:")
     print("For help type:")
     print("   python plot_river_clusters.py -h\n")
     print("=======================================================================\n\n ")
@@ -59,7 +58,7 @@ def find_nearest_idx(array,value):
     else:
         return idx
 
-def ResampleProfiles(df, profile_len = 100, step=2, slope_window_size=25):
+def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
     that can be used for the time series clustering.  For each profile, the slope
@@ -119,22 +118,22 @@ def ResampleProfiles(df, profile_len = 100, step=2, slope_window_size=25):
             reg_slope.append(p[1][idx])
             # get this distance and append the regular distance to the thinned df
             thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_source'] == p[0][idx])])
-        thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'resampled_dist'] = reg_dist
+        thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
         data[i] = reg_slope
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
 
 
     return thinned_df, data
 
-def ShiftProfiles(thinned_df, shift_steps=5):
+def ShiftProfiles(thinned_df, shift_steps=100):
     """
     Shift the profiles by a certain number of steps backwards and forwards compared
     to a reference profile. Check the correlation of each, and take the max correlation.
 
         Args:
-        thinned_df: the dataframe of the profiles with the resampled distances
+        thinned_df: the dataframe of the profiles with the regular distances
         shift_steps: the number of steps to check for the correlation. Default = 5 steps.
 
     Author: FJC
@@ -143,8 +142,9 @@ def ShiftProfiles(thinned_df, shift_steps=5):
     # get the source ids of each profile
     sources = thinned_df['id'].unique()
     # take the first profile to be the reference. This is arbitrary
-    ref_df = thinned_df[thinned_df['id'] == sources[0]]
+    ref_df = thinned_df[thinned_df['id'] == sources[1]]
     y = ref_df.slope.as_matrix()
+    shift_steps = len(y)/2
 
     # array to work out the indexes for shifting the data. We want to shift both
     # forwards and backwards
@@ -347,7 +347,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     Author: FJC
     """
     # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
 
     # do the clustering
     cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
@@ -368,11 +368,11 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['resampled_dist'], src_df['slope'], lw=1, color=colors[cl-1])
+                ax.plot(src_df['reg_dist'], src_df['slope'], lw=1, color=colors[cl-1])
                 # save the colour to the cluster dataframe for later plots
                 cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[cl-1]
         else:
-            ax.plot(this_df['resampled_dist'], this_df['slope'], lw=1, color='k')
+            ax.plot(this_df['reg_dist'], this_df['slope'], lw=1, color='k')
             # save the colour to the cluster dataframe for later plots
             cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = 'k'
 
@@ -395,7 +395,7 @@ def PlotProfileShifting():
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_resampled.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
     shifted_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
 
     sources = df['id'].unique()
@@ -407,12 +407,12 @@ def PlotProfileShifting():
 
     for src in sources:
         this_df = df[df['id'] == src]
-        ax.plot(this_df['resampled_dist'], this_df['slope'], lw=0.5)
+        ax.plot(this_df['reg_dist'], this_df['slope'], lw=0.5)
 
     ax.set_xlabel('Distance from source (m)')
     ax.set_ylabel('Gradient (m/m)')
 
-    plt.savefig(DataDirectory+fname_prefix+('_profiles_resampled.png'), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_reg_dist.png'), dpi=300)
     plt.clf()
 
     fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
@@ -421,7 +421,7 @@ def PlotProfileShifting():
 
     for src in sources:
         this_shifted_df = shifted_df[shifted_df['id'] == src]
-        ax.plot(this_shifted_df['resampled_dist'], this_shifted_df['slope'], lw=0.5)
+        ax.plot(this_shifted_df['reg_dist'], this_shifted_df['slope'], lw=0.5)
 
     ax.set_xlabel('Distance from source (m)')
     ax.set_ylabel('Gradient (m/m)')
@@ -478,7 +478,7 @@ def PlotMedianProfiles():
     # find out some info
     clusters = df.cluster_id.unique()
     sources = df.id.unique()
-    dist_array = df[df.id == sources[0]].resampled_dist.as_matrix()
+    dist_array = df[df.id == sources[0]].reg_dist.as_matrix()
 
     # set up a figure
     fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
@@ -487,13 +487,13 @@ def PlotMedianProfiles():
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    # for each cluster, get the mean gradient for each resampled distance
+    # for each cluster, get the mean gradient for each regular distance
     for i, cl in enumerate(clusters):
 
         cluster_df = df[df.cluster_id == cl]
-        median_gradients = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.median() for x in dist_array])
-        lower_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.quantile(0.25) for x in dist_array])
-        upper_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].slope.quantile(0.75) for x in dist_array])
+        median_gradients = np.asarray([cluster_df[cluster_df.reg_dist == x].slope.median() for x in dist_array])
+        lower_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].slope.quantile(0.25) for x in dist_array])
+        upper_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].slope.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax[i].plot(dist_array,median_gradients,color=this_colour, lw=1)
@@ -514,12 +514,12 @@ def PlotMedianProfiles():
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
     ax = fig.add_subplot(gs[5:100,10:95])
 
-    # for each cluster, get the mean gradient for each resampled distance
+    # for each cluster, get the mean gradient for each regular distance
     for cl in clusters:
         cluster_df = df[df.cluster_id == cl]
-        median_elevs = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array])
-        lower_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.quantile(0.25) for x in dist_array])
-        upper_quantile = np.asarray([cluster_df[cluster_df.resampled_dist == x].elevation.quantile(0.75) for x in dist_array])
+        median_elevs = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.median() for x in dist_array])
+        lower_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.quantile(0.25) for x in dist_array])
+        upper_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
@@ -565,7 +565,7 @@ def MakeSlopeAreaPlots():
     plt.clf()
 
 
-    # # for each cluster, get the mean gradient for each resampled distance
+    # # for each cluster, get the mean gradient for each regular distance
     # for cl in clusters:
     #     # set up a figure
     #     fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
@@ -573,7 +573,7 @@ def MakeSlopeAreaPlots():
     #     ax = fig.add_subplot(gs[5:100,10:95])
     #
     #     cluster_df = df[df.cluster_id == cl]
-    #     median_elevs = [cluster_df[cluster_df.resampled_dist == x].elevation.median() for x in dist_array]
+    #     median_elevs = [cluster_df[cluster_df.reg_dist == x].elevation.median() for x in dist_array]
     #     # get the colour from the dataframe
     #     this_colour = str(cluster_df.colour.unique()[0])
     #     ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
@@ -605,8 +605,8 @@ if __name__ == '__main__':
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
-    parser.add_argument("-step", "-step", type=int, help="The spacing in metres that you want to resample the profiles to, as they need to have a regular spacing for the clustering algorithms to work.  The default is 1 m.", default = 2)
-    parser.add_argument("-shift", "--shift_steps", type=int, help="The number of steps that you want to shift the profiles by to prior to clustering. The default is 50. You can get the shift in metres by multiplying the shift steps by the spacing for the resampled profiles (e.g. 50 with a step of 2 will be 100 m for testing the shift). Default = 50 steps", default = 50)
+    parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m.", default = 2)
+    parser.add_argument("-shift", "--shift_steps", type=int, help="The number of steps that you want to shift the profiles by to prior to clustering. The default is 50. You can get the shift in metres by multiplying the shift steps by the spacing for the regularly spaced profiles (e.g. 50 with a step of 2 will be 100 m for testing the shift). Default = 50 steps", default = 50)
 
     args = parser.parse_args()
 
@@ -633,20 +633,21 @@ if __name__ == '__main__':
     dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
 
     # check to see if you have ran the analyses before
-    resampled_csv = DataDirectory+args.fname_prefix+'_profiles_resampled.csv'
+    regular_csv = DataDirectory+args.fname_prefix+'_profiles_reg_dist.csv'
     shifted_csv = DataDirectory+args.fname_prefix+'_profiles_shifted.csv'
     clustered_csv = DataDirectory+args.fname_prefix+'_profiles_clustered.csv'
     if not os.path.isfile(clustered_csv):
         if not os.path.isfile(shifted_csv):
-            if not os.path.isfile(resampled_csv):
+            if not os.path.isfile(regular_csv):
                 # read in the original csv
                 df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
                 # calculate the slope
                 df = CalculateSlope(df, args.slope_window)
-                # resample the profiles to a common distance frame
-                resample_df, data = ResampleProfiles(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
+                # shift the profiles to a common distance frame
+                regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
             # shift the profiles to reduce lag
-            ShiftProfiles(resample_df,shift_steps=args.shift_steps)
+            regular_df = pd.read_csv(regular_csv)
+            ShiftProfiles(regular_df, shift_steps=args.shift_steps)
             PlotProfileShifting()
 
         # now do the clustering
@@ -654,4 +655,3 @@ if __name__ == '__main__':
 
     PlotMedianProfiles()
     MakeHillshadePlotClusters()
-    MakeSlopeAreaPlots()
