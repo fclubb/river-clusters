@@ -58,7 +58,7 @@ def find_nearest_idx(array,value):
     else:
         return idx
 
-def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25):
+def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
     that can be used for the time series clustering.  For each profile, the slope
@@ -75,13 +75,15 @@ def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25)
 
     Author: FJC
     """
-    print("Resampling the profiles to a common distance step of {} m".format(step))
+    print("The profile length is {} m, any smaller channels will be removed.".format(profile_len))
+    print("Assigning the profiles a common distance step of {} m".format(step))
     # find the slope radius. We don't calculate slope for the first or last few nodes, which
     # are below the min required window size. Therefore reg dist needs to be smaller
     slope_radius = ((slope_window_size-1)/2)
 
     # create new array of regularly spaced differences
     reg_dist = np.arange(slope_radius+step, profile_len-(slope_radius), step)
+
 
     # find the minimum length that the array can be (profile length/root2)
     min_length = profile_len/(math.sqrt(2))
@@ -94,15 +96,17 @@ def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25)
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
-        slopes = this_df['slope'].as_matrix()
-        distances = this_df['distance_from_source'].as_matrix()
-        if (len(slopes) >= min_length):
-            profiles.append((distances, slopes))
-            #thinned_df = thinned_df.append(this_df)
-            final_sources.append(source)
+        if not this_df.empty:
+            slopes = this_df['slope'].as_matrix()[::-1] #need to reverse these as the distances need to be sorted
+            distances = this_df['distance_from_outlet'].as_matrix()[::-1]
+            if (distances.max() >= profile_len):
+                profiles.append((distances, slopes))
+                #thinned_df = thinned_df.append(this_df)
+                final_sources.append(source)
 
     # now create the 2d array to store the data
     n_profiles = len(profiles)
+    print ("N PROFILES: ", n_profiles)
     data = np.empty((n_profiles, len(reg_dist)))
 
     # create a new dataframe for storing the data about the selected profiles
@@ -114,15 +118,18 @@ def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25)
     for i, p in enumerate(profiles):
         reg_slope = []
         for d in reg_dist:
+            # print p[0]
+            # print d
             idx = find_nearest_idx(p[0], d)
             reg_slope.append(p[1][idx])
+            this_dist = p[0][idx]
             # get this distance and append the regular distance to the thinned df
-            thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_source'] == p[0][idx])])
+            thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_outlet'] == p[0][idx])])
         thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
         data[i] = reg_slope
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
 
 
     return thinned_df, data
@@ -178,7 +185,7 @@ def ShiftProfiles(thinned_df, shift_steps=100):
         # append the shifted df to the master
         shifted_df = shifted_df.append(src_df)
 
-        shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+        shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_shifted.csv')
 
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
@@ -207,6 +214,8 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
         this_df = df[df['id'] == src]
 
         data[i] = this_df['slope']
+
+    print data
 
     # we could have a look at the ranks too ..
     # correlations
@@ -237,7 +246,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     R = dendrogram(ln, color_threshold=1, above_threshold_color='k')
 
     plt.axhline(y = thr, color = 'r', ls = '--')
-    plt.savefig(DataDirectory+fname_prefix+"_dendrogram.png", dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
     plt.clf()
 
     for i,id in enumerate(source_ids):
@@ -261,7 +270,7 @@ def CalculateSlope(df, slope_window_size):
     """
     ids = df['id'].unique()
     for id in ids:
-        dist = df['distance_from_source'][df['id'] == id]
+        dist = df['distance_from_outlet'][df['id'] == id]
         elev = df['elevation'][df['id'] == id]
         slopes = np.empty(len(dist))
 
@@ -347,7 +356,7 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     Author: FJC
     """
     # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
 
     # do the clustering
     cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
@@ -380,11 +389,11 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
         ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
-        plt.savefig(DataDirectory+fname_prefix+('_profiles_clustered_{}.png').format(int(cl)), dpi=300)
+        plt.savefig(DataDirectory+fname_prefix+('_profiles_upstream_clustered_{}.png').format(int(cl)), dpi=300)
         plt.clf()
 
     # write the clustered dataframe to csv
-    cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
+    cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
 
     return cluster_df
 
@@ -395,8 +404,8 @@ def PlotProfileShifting():
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_reg_dist.csv')
-    shifted_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
+    shifted_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_shifted.csv')
 
     sources = df['id'].unique()
 
@@ -440,7 +449,7 @@ def MakeHillshadePlotClusters():
 
     Author: FJC
     """
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
+    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
     # Set up fonts for plots
     label_size = 10
     rcParams['font.family'] = 'sans-serif'
@@ -473,7 +482,7 @@ def PlotMedianProfiles():
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
 
     # find out some info
     clusters = df.cluster_id.unique()
@@ -632,26 +641,19 @@ if __name__ == '__main__':
     cmap_name = 'Dark2'
     dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
 
-    # check to see if you have ran the analyses before
-    regular_csv = DataDirectory+args.fname_prefix+'_profiles_reg_dist.csv'
-    shifted_csv = DataDirectory+args.fname_prefix+'_profiles_shifted.csv'
-    clustered_csv = DataDirectory+args.fname_prefix+'_profiles_clustered.csv'
-    if not os.path.isfile(clustered_csv):
-        if not os.path.isfile(shifted_csv):
-            if not os.path.isfile(regular_csv):
-                # read in the original csv
-                df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_sources{}.csv'.format(args.profile_len))
-                # calculate the slope
-                df = CalculateSlope(df, args.slope_window)
-                # shift the profiles to a common distance frame
-                regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
-            # shift the profiles to reduce lag
-            regular_df = pd.read_csv(regular_csv)
-            ShiftProfiles(regular_df, shift_steps=args.shift_steps)
-            PlotProfileShifting()
+    # read in the original csv
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+    # calculate the slope
+    df = CalculateSlope(df, args.slope_window)
+    # shift the profiles to a common distance frame
+    regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
+    # shift the profiles to reduce lag
+    #regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'profiles_upstream_reg_dist.csv')
+    # ShiftProfiles(regular_df, shift_steps=args.shift_steps)
+    # PlotProfileShifting()
 
-        # now do the clustering
-        cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+    # now do the clustering
+    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
 
     PlotMedianProfiles()
     MakeHillshadePlotClusters()
