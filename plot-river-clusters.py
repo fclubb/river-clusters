@@ -17,8 +17,8 @@ import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
-from scipy import stats
-from scipy.signal import correlate
+import scipy.stats as ss
+from scipy.ndimage.interpolation import shift
 from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
@@ -127,58 +127,101 @@ def ProfilesRegularDistance(df, profile_len = 100, step=2, slope_window_size=25)
 
     return thinned_df, data
 
-def ShiftProfiles(thinned_df, shift_steps=100):
+def CrossCorrelateProfiles(y1, y2):
+    """
+    Cross correlate two profiles to calculate the lag between them, and shift
+    y2 to remove the lag.
+
+    Args:
+        y1: numpy array of profile 1
+        y2: numpy array of profile 2
+
+    Returns:
+        shifted_y2: array of the shifted profile.
+
+    Author: FJC
+    """
+    npts = len(y1)
+    # make an array with the lags
+    lags = np.arange(-npts + 1, npts)
+    ccov = np.correlate(y1 - y1.mean(), y2 - y2.mean(), mode='full')
+    ccor = ccov / (npts * y1.std() * y2.std())
+
+    # find the maximum lag
+    maxlag = lags[np.argmax(ccor)]
+    print ("max correlation at lag {}".format(maxlag))
+
+    # shift y2 so to reduce the lag
+    shifted_y2 = shift(y2, maxlag, cval=np.nan)
+
+    return shifted_y2
+
+def ShiftProfiles(df, shift_steps=100):
     """
     Shift the profiles by a certain number of steps backwards and forwards compared
     to a reference profile. Check the correlation of each, and take the max correlation.
 
         Args:
-        thinned_df: the dataframe of the profiles with the regular distances
+        df: the dataframe of the profiles with the regular distances
         shift_steps: the number of steps to check for the correlation. Default = 5 steps.
 
     Author: FJC
     """
     print("Shifting the profiles based on their maximum correlation...")
     # get the source ids of each profile
-    sources = thinned_df['id'].unique()
-    # take the first profile to be the reference. This is arbitrary
-    ref_df = thinned_df[thinned_df['id'] == sources[1]]
-    y = ref_df.slope.as_matrix()
-    shift_steps = len(y)/2
+    sources = df['id'].unique()
+    pts_in_profile = len(df[df['id'] == sources[0]])
+    data = np.empty((len(sources), pts_in_profile))
 
-    # array to work out the indexes for shifting the data. We want to shift both
-    # forwards and backwards
-    shift_array = np.arange(-shift_steps,shift_steps+1,1)
+    for i, src in enumerate(sources):
+        this_df = df[df['id'] == src]
 
-    shifted_df = pd.DataFrame()
+        data[i] = this_df['slope']
 
-    # shift each profile and check each correlation to the ref_df
-    for src in sources:
-        src_df = thinned_df[thinned_df['id'] == src]
-        if src != sources[0]:
-            new_y = src_df.slope.as_matrix()
-            correlations = []
-            for i,shift in enumerate(shift_array):
-                # now shift the slopes
-                if shift < 0:
-                    y2 = new_y[abs(shift):]
-                    y1 = y[:shift]
-                if shift > 0:
-                    y2 = new_y[:-shift]
-                    y1 = y[shift:]
-                else:
-                    y1 = y
-                    y2 = new_y
-                correlations.append(stats.pearsonr(y1,y2)[0])
-            # find the maximum correlations
-            best_shift = shift_array[np.argmax(correlations)]
+    y1 = data[0]
+    for idx, y in enumerate(data):
+        shifted_y2 = CrossCorrelateProfiles(y1, y)
+        plt.plot(df[df['id'] == sources[idx]]['distance_from_source'], shifted_y2, lw=1)
+        data[idx] = shifted_y2
 
-            # for this source, now shift the dataframe column by this amount.
-            src_df.slope = src_df.slope.shift(best_shift)
-        # append the shifted df to the master
-        shifted_df = shifted_df.append(src_df)
 
-        shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+    plt.xlabel('Distance from source (m)')
+    plt.ylabel('Gradient (m/m)')
+
+    plt.savefig(DataDirectory+fname_prefix+('_profiles_shifted.png'), dpi=300)
+    plt.clf()
+
+
+    # shift_steps = len(y)/2
+    #
+    # # array to work out the indexes for shifting the data. We want to shift both
+    # # forwards and backwards
+    # shift_array = np.arange(-shift_steps,shift_steps+1,1)
+    #
+    # shifted_df = pd.DataFrame()
+    #
+    # # shift each profile and check each correlation to the ref_df
+    # for i,shift in enumerate(shift_array):
+    #     # now shift the slopes
+    #     if shift < 0:
+    #         y2 = new_y[abs(shift):]
+    #         y1 = y[:shift]
+    #     if shift > 0:
+    #         y2 = new_y[:-shift]
+    #         y1 = y[shift:]
+    #     else:
+    #         y1 = y
+    #         y2 = new_y
+    #     correlations.append(stats.pearsonr(y1,y2)[0])
+    #         # find the maximum correlations
+    #         best_shift = shift_array[np.argmax(correlations)]
+    #
+    #         # for this source, now shift the dataframe column by this amount.
+    #         src_df.slope = src_df.slope.shift(best_shift)
+    #     # append the shifted df to the master
+    #     shifted_df = shifted_df.append(src_df)
+    #
+    #     shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
 
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
@@ -648,10 +691,10 @@ if __name__ == '__main__':
             # shift the profiles to reduce lag
             regular_df = pd.read_csv(regular_csv)
             ShiftProfiles(regular_df, shift_steps=args.shift_steps)
-            PlotProfileShifting()
+            #PlotProfileShifting()
 
         # now do the clustering
-        cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+        #cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
 
-    PlotMedianProfiles()
-    MakeHillshadePlotClusters()
+    #PlotMedianProfiles()
+    #MakeHillshadePlotClusters()
