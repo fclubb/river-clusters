@@ -180,9 +180,12 @@ def ShiftProfiles(df, shift_steps=100):
 
     y1 = data[0]
     for idx, y in enumerate(data):
+        src_df = df[df.id == sources[idx]]
+        #shift the profile
         shifted_y2 = CrossCorrelateProfiles(y1, y)
-        plt.plot(df[df['id'] == sources[idx]]['distance_from_source'], shifted_y2, lw=1)
-        data[idx] = shifted_y2
+        # append to the dataframe
+        df.loc[df.id == sources[idx], 'slope'] = shifted_y2
+        plt.plot(src_df['distance_from_source'], shifted_y2, lw=1)
 
 
     plt.xlabel('Distance from source (m)')
@@ -191,37 +194,7 @@ def ShiftProfiles(df, shift_steps=100):
     plt.savefig(DataDirectory+fname_prefix+('_profiles_shifted.png'), dpi=300)
     plt.clf()
 
-
-    # shift_steps = len(y)/2
-    #
-    # # array to work out the indexes for shifting the data. We want to shift both
-    # # forwards and backwards
-    # shift_array = np.arange(-shift_steps,shift_steps+1,1)
-    #
-    # shifted_df = pd.DataFrame()
-    #
-    # # shift each profile and check each correlation to the ref_df
-    # for i,shift in enumerate(shift_array):
-    #     # now shift the slopes
-    #     if shift < 0:
-    #         y2 = new_y[abs(shift):]
-    #         y1 = y[:shift]
-    #     if shift > 0:
-    #         y2 = new_y[:-shift]
-    #         y1 = y[shift:]
-    #     else:
-    #         y1 = y
-    #         y2 = new_y
-    #     correlations.append(stats.pearsonr(y1,y2)[0])
-    #         # find the maximum correlations
-    #         best_shift = shift_array[np.argmax(correlations)]
-    #
-    #         # for this source, now shift the dataframe column by this amount.
-    #         src_df.slope = src_df.slope.shift(best_shift)
-    #     # append the shifted df to the master
-    #     shifted_df = shifted_df.append(src_df)
-    #
-    #     shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
+    df.to_csv(DataDirectory+fname_prefix+'_profiles_shifted.csv')
 
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
@@ -626,6 +599,26 @@ def MakeSlopeAreaPlots():
     #
     # plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     # plt.clf()
+
+def PlotUniqueChannelsWithLengthScale(profile_len=1000):
+    """
+    This function takes the csv file with all the sources, and makes a plot
+    showing the number of unique channels with each length scale.
+
+    Args:
+        profile_len: max length of the profile in metres.
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_all_sources{}.csv'.format(profile_len)))
+
+    # make an array of the profile lengths you want to test. The one in the csv has to be the max
+    # one. We'll test 100 m spacings from this.
+    step=100
+    lengths = np.arange(0+step, profile_len+step, step=step)
+    print lengths
+
+
 
 
 if __name__ == '__main__':
