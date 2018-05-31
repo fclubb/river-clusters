@@ -28,6 +28,12 @@ from collections import defaultdict
 import os
 #import seaborn as sns
 
+# Set up fonts for plots
+label_size = 10
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['arial']
+rcParams['font.size'] = label_size
+
 #=============================================================================
 # This is just a welcome screen that is displayed if no arguments are provided.
 #=============================================================================
@@ -106,11 +112,17 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
 
     # now create the 2d array to store the data
     n_profiles = len(profiles)
-    print ("N PROFILES: ", n_profiles)
     data = np.empty((n_profiles, len(reg_dist)))
 
     # create a new dataframe for storing the data about the selected profiles
     thinned_df = pd.DataFrame()
+
+    # make a plot of the gradient vs. distance from source aligned to the outlet with
+    # the resampled distance frame
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
 
     # loop through the profiles. For each point in the regularly spaced array,
     # find the index of the closest point in the distance array. Then use this to
@@ -118,8 +130,6 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
     for i, p in enumerate(profiles):
         reg_slope = []
         for d in reg_dist:
-            # print p[0]
-            # print d
             idx = find_nearest_idx(p[0], d)
             reg_slope.append(p[1][idx])
             this_dist = p[0][idx]
@@ -128,64 +138,18 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
         thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
         data[i] = reg_slope
 
+        # plot this profile
+        ax.plot(reg_dist, reg_slope)
+
     # write the thinned_df to output in case we want to reload
     thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
 
+    # now save the figure
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Gradient')
+    plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.png', dpi=300)
 
     return thinned_df, data
-
-def ShiftProfiles(thinned_df, shift_steps=100):
-    """
-    Shift the profiles by a certain number of steps backwards and forwards compared
-    to a reference profile. Check the correlation of each, and take the max correlation.
-
-        Args:
-        thinned_df: the dataframe of the profiles with the regular distances
-        shift_steps: the number of steps to check for the correlation. Default = 5 steps.
-
-    Author: FJC
-    """
-    print("Shifting the profiles based on their maximum correlation...")
-    # get the source ids of each profile
-    sources = thinned_df['id'].unique()
-    # take the first profile to be the reference. This is arbitrary
-    ref_df = thinned_df[thinned_df['id'] == sources[1]]
-    y = ref_df.slope.as_matrix()
-    shift_steps = len(y)/2
-
-    # array to work out the indexes for shifting the data. We want to shift both
-    # forwards and backwards
-    shift_array = np.arange(-shift_steps,shift_steps+1,1)
-
-    shifted_df = pd.DataFrame()
-
-    # shift each profile and check each correlation to the ref_df
-    for src in sources:
-        src_df = thinned_df[thinned_df['id'] == src]
-        if src != sources[0]:
-            new_y = src_df.slope.as_matrix()
-            correlations = []
-            for i,shift in enumerate(shift_array):
-                # now shift the slopes
-                if shift < 0:
-                    y2 = new_y[abs(shift):]
-                    y1 = y[:shift]
-                if shift > 0:
-                    y2 = new_y[:-shift]
-                    y1 = y[shift:]
-                else:
-                    y1 = y
-                    y2 = new_y
-                correlations.append(stats.pearsonr(y1,y2)[0])
-            # find the maximum correlations
-            best_shift = shift_array[np.argmax(correlations)]
-
-            # for this source, now shift the dataframe column by this amount.
-            src_df.slope = src_df.slope.shift(best_shift)
-        # append the shifted df to the master
-        shifted_df = shifted_df.append(src_df)
-
-        shifted_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_shifted.csv')
 
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
@@ -212,7 +176,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     data = np.empty((len(sources), pts_in_profile))
 
     for i, src in enumerate(sources):
-        this_df = df[df['id'] == src]    
+        this_df = df[df['id'] == src]
         data[i] = this_df['slope']
     #print data
 
@@ -268,6 +232,16 @@ def CalculateSlope(df, slope_window_size):
 
     Author: FJC
     """
+
+    # make a plot of the gradient vs. distance from source aligned to the outlet
+    fig_width_inches = 4.92126
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # get all unique source IDs from the dataframe
     ids = df['id'].unique()
     for id in ids:
         dist = df['distance_from_outlet'][df['id'] == id]
@@ -293,54 +267,42 @@ def CalculateSlope(df, slope_window_size):
                 slopes[index] = np.nan
 
         df.loc[df.id==id, 'slope'] = slopes
+        ax.plot(dist, slopes, lw=1)
+
+    # now save the figure
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Gradient')
+    plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream.png', dpi=300)
+    plt.clf()
 
     print("Got the slope over a window radius of {} m").format(slope_window_size)
 
     return df
 
+def RemoveProfilesShorterThanThresholdLength(df, profile_len=1000):
+    """
+    Remove any profiles that are shorter than a threshold length.
+    I can't believe I worked out how to do that in one line of code...!
+    """
+    # find the maximum distance for each id and remove any less than the profile length
+    df = df[df.groupby('id')['distance_from_outlet'].transform('max') >= profile_len]
+    return df
+
+def RemoveNonUniqueProfiles(df):
+    """
+    From the regularly spaced distance dataframe, remove any profiles
+    which are non-unique (e.g., they have the same nodes as another
+    profile)
+    """
+    # group the dataframe by the source id, and then check if the
+    # node column is repeated. If it is then remove the index from the dataframe
+    s = df.groupby('id')['node'].apply(tuple).drop_duplicates().index
+    new_df = df.loc[df['id'].isin(s)]
+
+    return new_df
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
-
-def PlotProfilesAllSourcesElev(slope_window_size=3,profile_len=100, step=2, min_corr=0.5):
-    """
-    Function to make a plot of all the channels coloured by source
-
-    Args:
-        slope_window_size (int): number of points on the channel from which to calculate slope
-
-    Author: FJC
-    """
-    # Set up fonts for plots
-    label_size = 10
-    rcParams['font.family'] = 'sans-serif'
-    rcParams['font.sans-serif'] = ['arial']
-    rcParams['font.size'] = label_size
-
-    for fname in glob(DataDirectory+"*_all_sources*.csv"):
-
-        # set up a figure
-        fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-        gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-        ax = fig.add_subplot(gs[5:100,10:95])
-
-        df = pd.read_csv(fname)
-
-        # get the profile IDs
-        source_ids = df['id'].unique()
-
-        for id in source_ids:
-            print ('This id is: ', id)
-            this_df = df[df['id'] == id]
-            source_elev = this_df['elevation'].max()
-            this_df['normalised_elev'] = this_df['elevation']/source_elev
-            ax.plot(this_df['distance_from_source'], this_df['elevation'], lw=1)
-
-        ax.set_xlabel('Distance from source (m)')
-        ax.set_ylabel('Elevation (m)')
-
-        plt.savefig(DataDirectory+fname_prefix+'_profiles_sources.png', dpi=300)
-        plt.clf()
 
 def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=0.5, method = 'complete'):
     """
@@ -357,6 +319,8 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
     """
     # read in the csv
     df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
+
+    df = RemoveNonUniqueProfiles(df)
 
     # do the clustering
     cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
@@ -450,11 +414,6 @@ def MakeHillshadePlotClusters():
     Author: FJC
     """
     cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
-    # Set up fonts for plots
-    label_size = 10
-    rcParams['font.family'] = 'sans-serif'
-    rcParams['font.sans-serif'] = ['arial']
-    rcParams['font.size'] = label_size
 
     # set figure sizes based on format
     fig_width_inches = 4.92126
@@ -641,16 +600,16 @@ if __name__ == '__main__':
     cmap_name = 'Dark2'
     dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
 
-    # read in the original csv
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    # calculate the slope
+    # # read in the original csv
+    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+    #
+    # # calculate the slope
+    # df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
     # df = CalculateSlope(df, args.slope_window)
-    # # shift the profiles to a common distance frame
+    #
+    # # # shift the profiles to a common distance frame
     # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
-    # shift the profiles to reduce lag
-    #regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'profiles_upstream_reg_dist.csv')
-    # ShiftProfiles(regular_df, shift_steps=args.shift_steps)
-    # PlotProfileShifting()
+
 
     # now do the clustering
     cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
