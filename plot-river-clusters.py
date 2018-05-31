@@ -207,15 +207,15 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
 
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
+    #print sources
     pts_in_profile = len(df[df['id'] == sources[0]])
     data = np.empty((len(sources), pts_in_profile))
 
     for i, src in enumerate(sources):
-        this_df = df[df['id'] == src]
-
+        this_df = df[df['id'] == src]    
         data[i] = this_df['slope']
+    #print data
 
-    print data
 
     # we could have a look at the ranks too ..
     # correlations
@@ -644,9 +644,9 @@ if __name__ == '__main__':
     # read in the original csv
     df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
     # calculate the slope
-    df = CalculateSlope(df, args.slope_window)
-    # shift the profiles to a common distance frame
-    regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
+    # df = CalculateSlope(df, args.slope_window)
+    # # shift the profiles to a common distance frame
+    # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
     # shift the profiles to reduce lag
     #regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'profiles_upstream_reg_dist.csv')
     # ShiftProfiles(regular_df, shift_steps=args.shift_steps)
