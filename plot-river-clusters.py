@@ -26,7 +26,6 @@ from LSDMapFigure.PlottingRaster import MapFigure
 import sys
 from collections import defaultdict
 import os
-#import seaborn as sns
 
 # Set up fonts for plots
 label_size = 10
@@ -148,6 +147,7 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Gradient')
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.png', dpi=300)
+    plt.clf()
 
     return thinned_df, data
 
@@ -207,7 +207,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=1, above_threshold_color='k')
+    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
@@ -345,9 +345,9 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
                 # save the colour to the cluster dataframe for later plots
                 cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[cl-1]
         else:
-            ax.plot(this_df['reg_dist'], this_df['slope'], lw=1, color='k')
+            ax.plot(this_df['reg_dist'], this_df['slope'], lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
-            cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = 'k'
+            cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
         ax.set_xlabel('Distance from source (m)')
         ax.set_ylabel('Gradient')
@@ -361,48 +361,6 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
 
     return cluster_df
 
-def PlotProfileShifting():
-    """
-    Make a plot of the profiles before and after they were shifted
-    for checking
-
-    Author: FJC
-    """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
-    shifted_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_shifted.csv')
-
-    sources = df['id'].unique()
-
-    # set up a figure
-    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    ax = fig.add_subplot(gs[5:100,10:95])
-
-    for src in sources:
-        this_df = df[df['id'] == src]
-        ax.plot(this_df['reg_dist'], this_df['slope'], lw=0.5)
-
-    ax.set_xlabel('Distance from source (m)')
-    ax.set_ylabel('Gradient (m/m)')
-
-    plt.savefig(DataDirectory+fname_prefix+('_profiles_reg_dist.png'), dpi=300)
-    plt.clf()
-
-    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    ax = fig.add_subplot(gs[5:100,10:95])
-
-    for src in sources:
-        this_shifted_df = shifted_df[shifted_df['id'] == src]
-        ax.plot(this_shifted_df['reg_dist'], this_shifted_df['slope'], lw=0.5)
-
-    ax.set_xlabel('Distance from source (m)')
-    ax.set_ylabel('Gradient (m/m)')
-
-    plt.savefig(DataDirectory+fname_prefix+('_profiles_shifted.png'), dpi=300)
-    plt.clf()
-
-
 def MakeHillshadePlotClusters():
     """
     Make a shaded relief plot of the raster with the channels coloured by the cluster
@@ -413,7 +371,9 @@ def MakeHillshadePlotClusters():
 
     Author: FJC
     """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
     cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+
 
     # set figure sizes based on format
     fig_width_inches = 4.92126
@@ -427,10 +387,14 @@ def MakeHillshadePlotClusters():
     MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km")
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
+        # plot the whole channel network in black
+        ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
+        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=2, zorder=1)
+        # plot the clustered profiles in the correct colour
         this_df = cluster_df[cluster_df.cluster_id == cl]
         this_colour = str(this_df.colour.unique()[0])
-        ChannelPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ChannelPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
+        ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
+        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters.png', FigFormat='png', Fig_dpi = 300) # Save the figure
 
@@ -595,10 +559,10 @@ if __name__ == '__main__':
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
 
-    # set colour palette: 6 class Dark 2 from http://colorbrewer2.org
-    colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02']
-    cmap_name = 'Dark2'
-    dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
+    # set colour palette: 8 class Set 1 from http://colorbrewer2.org
+    N_colors = 8
+    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
+    threshold_color = '#377eb8'
 
     # # read in the original csv
     # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
