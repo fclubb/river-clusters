@@ -151,6 +151,75 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
 
     return thinned_df, data
 
+def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
+    """
+    This function takes the dataframe of river profiles and creates an array
+    that can be used for the time series clustering.  For each profile, the slope
+    is assigned to a common distance step, in metres (default=1m).
+    This can be used on profiles of varying distance: instead of creating the array here
+    we just write the regularly spaced distances to the dataframe.
+
+    Args:
+        df: pandas dataframe from the river profile csv.
+        profile_len (int): number of data points in each profile (= distance from source)
+        step (int): step size that you want in metres. This should be greater than the maximum
+        possible spacing between your points (max_spacing = sqrt(2 * DataRes^2)). Default = 2
+        slope_window_size (int): window over which slope was calculated
+
+    Returns: df with regularly spaced distances.
+
+    Author: FJC
+    """
+    print("Assigning the profiles a common distance step of {} m".format(step))
+    # find the slope radius. We don't calculate slope for the first or last few nodes, which
+    # are below the min required window size. Therefore reg dist needs to be smaller
+    slope_radius = ((slope_window_size-1)/2)
+
+    # create a new dataframe for storing the data about the selected profiles
+    thinned_df = pd.DataFrame()
+
+    # make a plot of the gradient vs. distance from source aligned to the outlet with
+    # the resampled distance frame
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # loop through the dataframe and store the data for each profile as an array of
+    # slopes and distances
+    profiles = []
+    source_ids = df['id'].unique()
+    final_sources = []
+    for i, source in enumerate(source_ids):
+        this_df = df[df['id'] == source]
+        this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
+        # create new array of regularly spaced differences
+        reg_dist = np.arange(slope_radius+step, df.shape[0]-(slope_radius), step)
+
+        if not this_df.empty:
+            slopes = this_df['slope'].as_matrix()[::-1] #need to reverse these as the distances need to be sorted
+            distances = this_df['distance_from_outlet'].as_matrix()[::-1]
+            reg_slope = []
+            for d in reg_dist:
+                idx = find_nearest_idx(distances, d)
+                reg_slope.append(slopes[idx])
+                # get this distance and append the regular distance to the thinned df
+                thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_outlet'] == distances[idx])])
+            thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
+
+            # plot this profile
+            ax.plot(reg_dist, reg_slope, lw=1)
+
+    # write the thinned_df to output in case we want to reload
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+
+    # now save the figure
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Gradient')
+    plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.png', dpi=300)
+
+    return thinned_df
+
 def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
     """
     Cluster the profiles based on gradient and distance from source.
@@ -600,19 +669,21 @@ if __name__ == '__main__':
     cmap_name = 'Dark2'
     dark2 = LinearSegmentedColormap.from_list(cmap_name, colors, N=len(colors))
 
-    # # read in the original csv
-    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    #
-    # # calculate the slope
-    # df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
-    # df = CalculateSlope(df, args.slope_window)
-    #
+    # read in the original csv
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+
+    # calculate the slope
+    df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    df = CalculateSlope(df, args.slope_window)
+
+    regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+
     # # # shift the profiles to a common distance frame
     # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
-
-
-    # now do the clustering
-    cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
-
-    PlotMedianProfiles()
-    MakeHillshadePlotClusters()
+    #
+    #
+    # # now do the clustering
+    # cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
+    #
+    # PlotMedianProfiles()
+    # MakeHillshadePlotClusters()
