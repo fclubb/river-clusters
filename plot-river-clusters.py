@@ -204,8 +204,8 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
                 idx = find_nearest_idx(distances, d)
                 reg_slope.append(slopes[idx])
                 # get this distance and append the regular distance to the thinned df
-                thinned_df = thinned_df.append(df.loc[(df['id']==final_sources[i]) & (df['distance_from_outlet'] == distances[idx])])
-            thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
+                thinned_df = thinned_df.append(this_df.loc[(this_df['distance_from_outlet'] == distances[idx])])
+            thinned_df.loc[(thinned_df['id'] == source), 'reg_dist'] = reg_dist
 
             # plot this profile
             ax.plot(reg_dist, reg_slope, lw=1)
@@ -253,6 +253,88 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     # we could have a look at the ranks too ..
     # correlations
     cc = Pearson(data)
+
+    # distances
+    dd = np.arccos(cc)
+
+    # do agglomerative clustering by stepwise pair matching
+    # based on angle between scalar products of time series
+    ln = linkage(dd, method=method)
+
+    # define threshold for cluster determination
+    thr = np.arccos(min_corr)
+
+    # compute cluster indices
+    cl = fcluster(ln, thr, criterion = 'distance')
+    print("I've finished! I found {} clusters for you :)".format(cl.max()))
+    print cl
+
+    set_link_color_palette(colors)
+
+    source_ids = df['id'].unique()
+
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.xlabel('sample index')
+    plt.ylabel('distance')
+    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color)
+
+    plt.axhline(y = thr, color = 'r', ls = '--')
+    plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
+    plt.clf()
+
+    for i,id in enumerate(source_ids):
+        df.loc[df.id==id, 'cluster_id'] = cl[i]
+
+    return df
+
+def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
+    """
+    Cluster the profiles based on gradient and distance from source. This works for profiles of varying length.
+    Aggolmerative clustering, see here for more info:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html#scipy.cluster.hierarchy.linkage
+
+    Args:
+        df: pandas dataframe from the river profile csv.
+        profile_len (int): number of data points in each profile (= distance from source)
+        step (int): the spacing in metres between the data points that you want, default = 1m
+        min_corr (float): minimum correlation threshold for clustering
+        method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
+        'weighted', 'centroid', 'median', or 'ward'. Default is 'complete'.
+
+    Author: AR, FJC
+    """
+    print ("Now I'm going to do some hierarchical clustering...")
+
+    # get the data from the dataframe into the right format for clustering
+    sources = df['id'].unique()
+    n = len(sources)
+    #print sources
+    data = []
+
+    for i, src in enumerate(sources):
+        this_df = df[df['id'] == src]
+        data.append(this_df['slope'])
+    print data
+
+    # correlation coefficients
+    cc = np.zeros(int(n * (n - 1) / 2))
+
+    k = 0
+    for i in range(n):
+        for j in range(i+1, n):
+            tsi = data[i]
+            tsj = data[j]
+            if len(tsi) > len(tsj):
+                tsi = tsi[:len(tsj)]
+            else:
+                tsj = tsj[:len(tsi)]
+            dts = tsi - tsj
+            l = 0
+            while dts[l] == 0:
+                l += 1
+            tsi, tsj = tsi[l:], tsj[l:]
+            cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            k += 1
 
     # distances
     dd = np.arccos(cc)
