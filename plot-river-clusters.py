@@ -190,7 +190,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
         # create new array of regularly spaced differences
-        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-(slope_radius), step)
+        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-slope_radius-step, step)
 
         if not this_df.empty:
             df_array = this_df.as_matrix()[::-1]
@@ -326,11 +326,8 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
         this_df = df[df['id'] == src]
         data.append(this_df['slope'].as_matrix())
 
-    print len(data)
-
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
-    print len(cc)
     #cc = []
     k = 0
     for i in range(n):
@@ -341,23 +338,24 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
-            dts = tsi - tsj
-            l = 0
-            if not np.all(dts == 0):
-                while dts[l] == 0:
-                    l += 1
-                tsi, tsj = tsi[l:], tsj[l:]
-                cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            else:
-                cc[k] = np.nan
-                #cc.append(np.corrcoef(tsi, tsj)[0, 1])
+            cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            # dts = tsi - tsj
+            # #print dts
+            # l = 0
+            # if not np.all(dts==0):
+            #     while dts[l] == 0:
+            #         l += 1
+            #     tsi, tsj = tsi[l:], tsj[l:]
+            #     cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            #         #cc.append(np.corrcoef(tsi, tsj)[0, 1])
+            # else:
+            #     cc[k] = np.nan
             k += 1
 
-    #print np.isnan(cc)
-    #cc = np.asarray(cc)
+    print np.isnan(cc)
     # distances
     dd = np.arccos(cc)
-
+    print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
@@ -748,7 +746,7 @@ if __name__ == '__main__':
     parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
 
     # The options for clustering
-    parser.add_argument("-len", "--profile_len", type=int, help="The length of the profiles, you should have specified this in the parameter file for the spaghetti code. Default is 1000 m.", default=1000)
+    parser.add_argument("-len", "--profile_len", type=int, help="Remove profiles shorter than this length (in m) from the clustering analysis", default=100)
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
@@ -779,14 +777,14 @@ if __name__ == '__main__':
     colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
     threshold_color = '#377eb8'
 
-    # read in the original csv
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-
-    # calculate the slope
-    #df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
-    df = CalculateSlope(df, args.slope_window)
-
-    regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+    # # read in the original csv
+    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+    #
+    # # calculate the slope
+    # df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    # df = CalculateSlope(df, args.slope_window)
+    #
+    # regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
 
     # cluster the profiles
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
