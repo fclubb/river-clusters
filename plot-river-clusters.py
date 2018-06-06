@@ -189,8 +189,10 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     # slopes and distances
     profiles = []
     source_ids = df['id'].unique()
+    print source_ids
     final_sources = []
     for i, source in enumerate(source_ids):
+        print("Source id: {}".format(source))
         this_df = df[df['id'] == source]
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         # create new array of regularly spaced differences
@@ -204,14 +206,14 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
                 idx = find_nearest_idx(distances, d)
                 reg_slope.append(slopes[idx])
                 # get this distance and append the regular distance to the thinned df
-                thinned_df = thinned_df.append(this_df.loc[(this_df['distance_from_outlet'] == distances[idx])])
-            thinned_df.loc[(thinned_df['id'] == source), 'reg_dist'] = reg_dist
+                #thinned_df = thinned_df.append(this_df.loc[(this_df['distance_from_outlet'] == distances[idx])])
+            #thinned_df.loc[(thinned_df['id'] == source), 'reg_dist'] = reg_dist
 
             # plot this profile
             ax.plot(reg_dist, reg_slope, lw=1)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    #thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')
