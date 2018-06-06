@@ -175,9 +175,6 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     # are below the min required window size. Therefore reg dist needs to be smaller
     slope_radius = ((slope_window_size-1)/2)
 
-    # create a new dataframe for storing the data about the selected profiles
-    thinned_df = pd.DataFrame()
-
     # make a plot of the gradient vs. distance from source aligned to the outlet with
     # the resampled distance frame
     # set up a figure
@@ -187,33 +184,42 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
-    profiles = []
     source_ids = df['id'].unique()
     print source_ids
-    final_sources = []
+    rows_list = []
     for i, source in enumerate(source_ids):
-        print("Source id: {}".format(source))
         this_df = df[df['id'] == source]
-        this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         # create new array of regularly spaced differences
-        reg_dist = np.arange(slope_radius+step, df.shape[0]-(slope_radius), step)
+        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-(slope_radius), step)
 
         if not this_df.empty:
-            slopes = this_df['slope'].as_matrix()[::-1] #need to reverse these as the distances need to be sorted
-            distances = this_df['distance_from_outlet'].as_matrix()[::-1]
+            df_array = this_df.as_matrix()[::-1]
+            slopes = df_array[:,-1]
+            distances = df_array[:,5]
             reg_slope = []
             for d in reg_dist:
+                # find the index of the nearest point in the distance array
                 idx = find_nearest_idx(distances, d)
                 reg_slope.append(slopes[idx])
-                # get this distance and append the regular distance to the thinned df
-                #thinned_df = thinned_df.append(this_df.loc[(this_df['distance_from_outlet'] == distances[idx])])
-            #thinned_df.loc[(thinned_df['id'] == source), 'reg_dist'] = reg_dist
+                # find the row that corresponds to this distance
+                this_row = df_array[idx,:]
+                this_row = np.append(this_row,d)
+
+                rows_list.append(this_row)
 
             # plot this profile
             ax.plot(reg_dist, reg_slope, lw=1)
 
+    # change the array back to a dataframe
+    cols = list(df.columns.values)
+    cols.append('reg_dist')
+    thinned_df = pd.DataFrame(data=rows_list,columns=cols)
+
+    # now remove non-unique profiles
+    thinned_df = RemoveNonUniqueProfiles(thinned_df)
+
     # write the thinned_df to output in case we want to reload
-    #thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')
@@ -297,8 +303,6 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     Args:
         df: pandas dataframe from the river profile csv.
-        profile_len (int): number of data points in each profile (= distance from source)
-        step (int): the spacing in metres between the data points that you want, default = 1m
         min_corr (float): minimum correlation threshold for clustering
         method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
         'weighted', 'centroid', 'median', or 'ward'. Default is 'complete'.
@@ -306,21 +310,28 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     Author: AR, FJC
     """
     print ("Now I'm going to do some hierarchical clustering...")
+    np.set_printoptions(threshold='nan')
+
+    # remove non-unique profiles
+    df = RemoveNonUniqueProfiles(df)
 
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
     n = len(sources)
-    #print sources
+    print sources
+    print n
     data = []
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        data.append(this_df['slope'])
-    print data
+        data.append(this_df['slope'].as_matrix())
+
+    print len(data)
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
-
+    print len(cc)
+    #cc = []
     k = 0
     for i in range(n):
         for j in range(i+1, n):
@@ -332,12 +343,18 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
                 tsj = tsj[:len(tsi)]
             dts = tsi - tsj
             l = 0
-            while dts[l] == 0:
-                l += 1
-            tsi, tsj = tsi[l:], tsj[l:]
-            cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            if not np.all(dts == 0):
+                while dts[l] == 0:
+                    l += 1
+                tsi, tsj = tsi[l:], tsj[l:]
+                cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            else:
+                cc[k] = np.nan
+                #cc.append(np.corrcoef(tsi, tsj)[0, 1])
             k += 1
 
+    #print np.isnan(cc)
+    #cc = np.asarray(cc)
     # distances
     dd = np.arccos(cc)
 
@@ -431,7 +448,7 @@ def CalculateSlope(df, slope_window_size):
 
     return df
 
-def RemoveProfilesShorterThanThresholdLength(df, profile_len=1000):
+def RemoveProfilesShorterThanThresholdLength(df, profile_len=100):
     """
     Remove any profiles that are shorter than a threshold length.
     I can't believe I worked out how to do that in one line of code...!
@@ -766,10 +783,14 @@ if __name__ == '__main__':
     df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
     # calculate the slope
-    df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    #df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
     df = CalculateSlope(df, args.slope_window)
 
     regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+
+    # cluster the profiles
+    regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    ClusterProfilesVaryingLength(regular_df, args.min_corr)
 
     # # # shift the profiles to a common distance frame
     # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
