@@ -190,7 +190,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
         # create new array of regularly spaced differences
-        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-slope_radius-step, step)
+        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-slope_radius-step*2, step)
 
         if not this_df.empty:
             df_array = this_df.as_matrix()[::-1]
@@ -338,21 +338,22 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
+            #cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            dts = tsi - tsj
+            #print dts
+            l = 0
+            while dts[l] == 0:
+                l += 1
+            tsi, tsj = tsi[l:], tsj[l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            # dts = tsi - tsj
-            # #print dts
-            # l = 0
-            # if not np.all(dts==0):
-            #     while dts[l] == 0:
-            #         l += 1
-            #     tsi, tsj = tsi[l:], tsj[l:]
-            #     cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            #         #cc.append(np.corrcoef(tsi, tsj)[0, 1])
-            # else:
-            #     cc[k] = np.nan
+            if np.isnan(np.corrcoef(tsi, tsj)[0, 1]):
+                print "Nooooo this is a nan. Why"
+                print tsi
+                print tsj
             k += 1
 
-    print np.isnan(cc)
+    #print np.isnan(cc)
+    #print cc
     # distances
     dd = np.arccos(cc)
     print len(dd)
@@ -461,15 +462,22 @@ def RemoveNonUniqueProfiles(df):
     which are non-unique (e.g., they have the same nodes as another
     profile)
     """
-    # group the dataframe by the source id, and then check if the
-    # node column is repeated. If it is then remove the index from the dataframe
-    if (len(df['id'].unique()) > 1):
-        s = df.groupby('id')['node'].apply(tuple).drop_duplicates().index
-        new_df = df.loc[df['id'].isin(s)]
-    else:
-        new_df = df
+    # get a list of the sources
+    sources = df['id'].unique()
 
-    return new_df
+    duplicate_sources = []
+    # find the channel head of each source ID and check if this node is repeated
+    # anywhere else in the dataframe
+    for src in sources:
+        this_df = df[df['id'] == src]
+        rest_df = df[df['id'] != src]
+        ch_node = this_df['node'].iloc[-1]
+        mask = rest_df['node'].isin([ch_node]).any()
+        if mask:
+            duplicate_sources.append(src)
+
+    df_new = df[~df['id'].isin(duplicate_sources)]
+    return df_new
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
@@ -777,18 +785,19 @@ if __name__ == '__main__':
     colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
     threshold_color = '#377eb8'
 
-    # # read in the original csv
-    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    #
-    # # calculate the slope
-    # df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
-    # df = CalculateSlope(df, args.slope_window)
-    #
-    # regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+    # read in the original csv
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+
+    # calculate the slope
+    df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    df = CalculateSlope(df, args.slope_window)
+
+    regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
 
     # cluster the profiles
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
     ClusterProfilesVaryingLength(regular_df, args.min_corr)
+    #RemoveNonUniqueProfiles(regular_df)
 
     # # # shift the profiles to a common distance frame
     # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
