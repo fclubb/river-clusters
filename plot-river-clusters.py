@@ -87,7 +87,7 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
     slope_radius = ((slope_window_size-1)/2)
 
     # create new array of regularly spaced differences
-    reg_dist = np.arange(slope_radius+step, profile_len-(slope_radius), step)
+    reg_dist = np.arange(step, profile_len, step)
 
 
     # find the minimum length that the array can be (profile length/root2)
@@ -190,7 +190,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
         # create new array of regularly spaced differences
-        reg_dist = np.arange(slope_radius+step, int(this_df.distance_from_outlet.max())-slope_radius-step*2, step)
+        reg_dist = np.arange(step, int(this_df.distance_from_outlet.max())+step, step)
 
         if not this_df.empty:
             df_array = this_df.as_matrix()[::-1]
@@ -225,6 +225,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Gradient')
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.png', dpi=300)
+    plt.clf()
 
     return thinned_df
 
@@ -421,18 +422,22 @@ def CalculateSlope(df, slope_window_size):
         slicer = (slope_window_size - 1)/2
 
         for index, x in enumerate(pts_array):
-            # find the rows above and below relating to the window size
-            this_slice = pts_array[index-slicer:index+slicer+1]
-            if len(this_slice) == slope_window_size:
-                # now regress this slice
-                x = this_slice[:,0]
-                y = this_slice[:,1]
-                #print x, y
-                slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-                slopes[index] = abs(slope)
-                #print slope
-            else:
-                slopes[index] = np.nan
+            start_idx = index-slicer
+            if start_idx < 0:
+                start_idx=0
+            end_idx = index+slicer+1
+            if end_idx > len(pts_array):
+                end_idx = len(pts_array)
+            # find the rows above and below relating to the window size. We use whatever nodes
+            # are available to not waste the data.
+            this_slice = pts_array[start_idx:end_idx]
+            # now regress this slice
+            x = this_slice[:,0]
+            y = this_slice[:,1]
+            #print x, y
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+            slopes[index] = abs(slope)
+            #print slope
 
         df.loc[df.id==id, 'slope'] = slopes
         ax.plot(dist[::-1], slopes, lw=1)
