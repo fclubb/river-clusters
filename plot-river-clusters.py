@@ -339,18 +339,12 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
-            #cc[k] = np.corrcoef(tsi, tsj)[0, 1]
             dts = tsi - tsj
-            #print dts
             l = 0
             while dts[l] == 0:
                 l += 1
             tsi, tsj = tsi[l:], tsj[l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            if np.isnan(np.corrcoef(tsi, tsj)[0, 1]):
-                print "Nooooo this is a nan. Why"
-                print tsi
-                print tsj
             k += 1
 
     #print np.isnan(cc)
@@ -363,7 +357,8 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     ln = linkage(dd, method=method)
 
     # define threshold for cluster determination
-    thr = np.arccos(min_corr)
+    #thr = np.arccos(min_corr)
+    thr=2.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -486,8 +481,7 @@ def RemoveNonUniqueProfiles(df):
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
-
-def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=0.5, method = 'complete'):
+def PlotProfilesByCluster(cluster_df):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -500,14 +494,6 @@ def PlotProfilesByCluster(slope_window_size=3,profile_len=100, step=2, min_corr=
 
     Author: FJC
     """
-    # read in the csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
-
-    df = RemoveNonUniqueProfiles(df)
-
-    # do the clustering
-    cluster_df = ClusterProfiles(df, profile_len = profile_len, step=step, min_corr = min_corr, method = method)
-
     # find the unique clusters for plotting
     clusters = cluster_df['cluster_id'].unique()
     clusters.sort()
@@ -801,17 +787,10 @@ if __name__ == '__main__':
 
     # cluster the profiles
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    ClusterProfilesVaryingLength(regular_df, args.min_corr)
-    #RemoveNonUniqueProfiles(regular_df)
-
-    # # # shift the profiles to a common distance frame
-    # regular_df, data = ProfilesRegularDistance(df, profile_len = args.profile_len, step=args.step, slope_window_size=args.slope_window)
+    cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr)
+    PlotProfilesByCluster(cluster_df)
     #
-    #
-    # # now do the clustering
-    # cluster_df = PlotProfilesByCluster(slope_window_size=args.slope_window,profile_len=args.profile_len,step=args.step,method=args.method,min_corr=args.min_corr)
-    #
-    # PlotMedianProfiles()
-    # MakeHillshadePlotClusters()
+    PlotMedianProfiles()
+    MakeHillshadePlotClusters()
 
     #PlotUniqueStreamsWithLength()
