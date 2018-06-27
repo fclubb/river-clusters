@@ -357,8 +357,8 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     ln = linkage(dd, method=method)
 
     # define threshold for cluster determination
-    #thr = np.arccos(min_corr)
-    thr=2.2
+    thr = np.arccos(min_corr)
+    #thr=2.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
