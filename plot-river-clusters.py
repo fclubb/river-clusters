@@ -357,8 +357,8 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     ln = linkage(dd, method=method)
 
     # define threshold for cluster determination
-    thr = np.arccos(min_corr)
-    #thr=2.2
+    #thr = np.arccos(min_corr)
+    thr=2.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -637,6 +637,46 @@ def PlotMedianProfiles():
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     plt.clf()
 
+def PlotSlopeArea():
+    """
+    Make a summary plot showing the S-A plot for each cluster.
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+
+    # find out some info
+    clusters = df.cluster_id.unique()
+    clusters.sort()
+    sources = df.id.unique()
+
+    # set up a figure
+    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+
+    # for each cluster, get the mean gradient for each regular distance
+    for i, cl in enumerate(clusters):
+
+        cluster_df = df[df.cluster_id == cl]
+
+        # get the colour from the dataframe
+        this_colour = str(cluster_df.colour.unique()[0])
+        ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=0.1)
+        ax[i].text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
+
+    # set axis labels
+    plt.xlabel('Drainage area (km$^2$)')
+    plt.ylabel('Gradient')
+
+    # save and clear the figure
+    plt.savefig(DataDirectory+fname_prefix+('_SA_median.png'), dpi=300)
+    plt.clf()
+    plt.cla()
+    plt.close()
+
 def PlotUniqueStreamsWithLength(step=2, slope_window_size=25):
     """
     Function to make a plot of the number of unique channels you get (at least one non-overlapping
@@ -789,8 +829,9 @@ if __name__ == '__main__':
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
     cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr)
     PlotProfilesByCluster(cluster_df)
-    #
+
     PlotMedianProfiles()
     MakeHillshadePlotClusters()
+    PlotSlopeArea()
 
     #PlotUniqueStreamsWithLength()
