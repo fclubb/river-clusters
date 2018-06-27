@@ -668,7 +668,7 @@ def PlotSlopeArea():
         ax[i].text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
 
     # set axis labels
-    plt.xlabel('Drainage area (km$^2$)')
+    plt.xlabel('Drainage area (m$^2$)')
     plt.ylabel('Gradient')
 
     # save and clear the figure
