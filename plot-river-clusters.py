@@ -296,7 +296,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
 
     return df
 
-def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, method='complete'):
+def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, method='ward'):
     """
     Cluster the profiles based on gradient and distance from source. This works for profiles of varying length.
     Aggolmerative clustering, see here for more info:
@@ -325,7 +325,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        data.append(this_df['slope'].as_matrix())
+        data.append(this_df['elevation'].as_matrix())
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
@@ -343,22 +343,23 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             l = 0
             while dts[l] == 0:
                 l += 1
-            tsi, tsj = tsi[l:], tsj[l:]
+            # tsi, tsj = tsi[l:], tsj[l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
             k += 1
 
     #print np.isnan(cc)
-    #print cc
+    print cc
     # distances
     dd = np.arccos(cc)
+    print dd
     print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
 
     # define threshold for cluster determination
-    #thr = np.arccos(min_corr)
-    thr=2.2
+    thr = np.arccos(min_corr)
+    #thr=0.8
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -435,10 +436,10 @@ def CalculateSlope(df, slope_window_size):
             #print slope
 
         df.loc[df.id==id, 'slope'] = slopes
-        ax.plot(dist[::-1], slopes, lw=1)
+        ax.plot(dist, slopes, lw=1)
 
     # now save the figure
-    ax.set_xlabel('Distance from source (m)')
+    ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Gradient')
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream.png', dpi=300)
     plt.clf()
@@ -460,7 +461,8 @@ def RemoveNonUniqueProfiles(df):
     """
     From the regularly spaced distance dataframe, remove any profiles
     which are non-unique (e.g., they have the same nodes as another
-    profile)
+    profile). We check the first 5 upstream nodes of each profile and
+    remove any which have a duplicate node within this.
     """
     # get a list of the sources
     sources = df['id'].unique()
@@ -469,12 +471,21 @@ def RemoveNonUniqueProfiles(df):
     # find the channel head of each source ID and check if this node is repeated
     # anywhere else in the dataframe
     for src in sources:
-        this_df = df[df['id'] == src]
-        rest_df = df[df['id'] != src]
-        ch_node = this_df['node'].iloc[-1]
-        mask = rest_df['node'].isin([ch_node]).any()
-        if mask:
-            duplicate_sources.append(src)
+        if not src in duplicate_sources:
+            this_df = df[df['id'] == src]
+            rest_df = df[df['id'] != src]
+            us_nodes = this_df['node'][-10:].tolist()
+            for j in sources:
+                # check the last 5 nodes of the rest of the dataframe
+                rest_us_nodes = rest_df[rest_df['id'] == j]['node'][-10:].tolist()
+                duplicates = filter(set(us_nodes).__contains__, rest_us_nodes)
+                if duplicates:
+                    duplicate_sources.append(j)
+
+        # ch_node = this_df['node'].iloc[-1]
+        # mask = rest_df['node'].isin([ch_node]).any()
+        # if mask:
+        #     duplicate_sources.append(src)
 
     df_new = df[~df['id'].isin(duplicate_sources)]
     return df_new
@@ -512,16 +523,16 @@ def PlotProfilesByCluster(cluster_df):
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['reg_dist'].as_matrix()[::-1], src_df['slope'].as_matrix(), lw=1, color=colors[counter])
+                ax.plot(src_df['reg_dist'].as_matrix(), src_df['slope'].as_matrix(), lw=1, color=colors[counter])
                 # save the colour to the cluster dataframe for later plots
                 cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
             counter +=1
         else:
-            ax.plot(this_df['reg_dist'].as_matrix()[::-1], this_df['slope'].as_matrix(), lw=1, color=threshold_color)
+            ax.plot(this_df['reg_dist'].as_matrix(), this_df['slope'].as_matrix(), lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
             cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
-        ax.set_xlabel('Distance from source (m)')
+        ax.set_xlabel('Distance from outlet (m)')
         ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
@@ -556,17 +567,17 @@ def MakeHillshadePlotClusters():
     HillshadeName = fname_prefix+'_hs'+raster_ext
 
     # create the map figure
-    MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km")
+    MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
         ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=2, zorder=1)
+        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=5, zorder=1)
         # plot the clustered profiles in the correct colour
         this_df = cluster_df[cluster_df.cluster_id == cl]
         this_colour = str(this_df.colour.unique()[0])
         ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
+        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=5)
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters.png', FigFormat='png', Fig_dpi = 300) # Save the figure
 
@@ -601,12 +612,12 @@ def PlotMedianProfiles():
         upper_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].slope.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
-        ax[i].plot(dist_array[::-1],median_gradients,color=this_colour, lw=1)
-        ax[i].fill_between(dist_array[::-1], lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
+        ax[i].plot(dist_array,median_gradients,color=this_colour, lw=1)
+        ax[i].fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
         ax[i].text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
 
     # set axis labels
-    plt.xlabel('Distance from source (m)')
+    plt.xlabel('Distance from outlet (m)')
     plt.ylabel('Gradient')
 
     # save and clear the figure
@@ -628,10 +639,10 @@ def PlotMedianProfiles():
         upper_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.quantile(0.75) for x in dist_array])
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
-        ax.plot(dist_array[::-1],median_elevs,color=this_colour, lw=1)
-        ax.fill_between(dist_array[::-1], lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
+        ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
+        ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
 
-    ax.set_xlabel('Distance from source (m)')
+    ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
 
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
@@ -664,12 +675,15 @@ def PlotSlopeArea():
 
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
-        ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=0.1)
-        ax[i].text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
+        ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
+        ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
+        ax[i].set_xscale('log')
+        ax[i].set_yscale('log')
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
-    plt.ylabel('Gradient')
+    plt.ylabel('Gradient', labelpad=15)
+    plt.subplots_adjust(left=0.15)
 
     # save and clear the figure
     plt.savefig(DataDirectory+fname_prefix+('_SA_median.png'), dpi=300)
@@ -744,29 +758,11 @@ def MakeSlopeAreaPlots():
 
     ax.set_xlabel('Drainage area (m$^2$)')
     ax.set_ylabel('Gradient (m/m)')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
 
     plt.savefig(DataDirectory+fname_prefix+('_slope_area_median.png'), dpi=300)
     plt.clf()
-
-
-    # # for each cluster, get the mean gradient for each regular distance
-    # for cl in clusters:
-    #     # set up a figure
-    #     fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    #     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    #     ax = fig.add_subplot(gs[5:100,10:95])
-    #
-    #     cluster_df = df[df.cluster_id == cl]
-    #     median_elevs = [cluster_df[cluster_df.reg_dist == x].elevation.median() for x in dist_array]
-    #     # get the colour from the dataframe
-    #     this_colour = str(cluster_df.colour.unique()[0])
-    #     ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
-    #
-    # ax.set_xlabel('Distance from source (m)')
-    # ax.set_ylabel('Elevation (m)')
-    #
-    # plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
-    # plt.clf()
 
 
 if __name__ == '__main__':
