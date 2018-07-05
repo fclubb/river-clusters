@@ -315,6 +315,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     # remove non-unique profiles
     df = RemoveNonUniqueProfiles(df)
+    df = RemoveProfilesWithShortUniqueSection(df, 2)
 
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
@@ -325,7 +326,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        data.append(this_df['elevation'].as_matrix())
+        data.append(this_df['slope'].as_matrix())
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
@@ -343,15 +344,15 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             l = 0
             while dts[l] == 0:
                 l += 1
-            # tsi, tsj = tsi[l:], tsj[l:]
+            tsi, tsj = tsi[l:], tsj[l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
             k += 1
 
     #print np.isnan(cc)
-    print cc
+    #print cc
     # distances
     dd = np.arccos(cc)
-    print dd
+    #print dd
     print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
@@ -359,7 +360,6 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     # define threshold for cluster determination
     thr = np.arccos(min_corr)
-    #thr=0.8
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -457,6 +457,30 @@ def RemoveProfilesShorterThanThresholdLength(df, profile_len=100):
     df = df[df.groupby('id')['distance_from_outlet'].transform('max') >= profile_len]
     return df
 
+def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
+    """
+    Remove any profiles which only have a unique section that is
+    shorter than a threshold length.
+    """
+    all_nodes = df['node'].tolist()
+    sources = df['id'].unique()
+    unique_sources = []
+    for src in sources:
+        this_df = df[df['id'] == src]
+        these_nodes = this_df['node'].tolist()
+        # check if each node is in the all nodes dataframe twice.
+        # if it is then it is a duplicate.
+        unique_nodes = 0
+        for node in these_nodes:
+            count = all_nodes.count(node)
+            if count < 2:
+                unique_nodes += 1
+        if unique_nodes > threshold_len:
+            unique_sources.append(src)
+
+    df_new = df[df['id'].isin(unique_sources)]
+    return df_new
+
 def RemoveNonUniqueProfiles(df):
     """
     From the regularly spaced distance dataframe, remove any profiles
@@ -474,18 +498,18 @@ def RemoveNonUniqueProfiles(df):
         if not src in duplicate_sources:
             this_df = df[df['id'] == src]
             rest_df = df[df['id'] != src]
-            us_nodes = this_df['node'][-10:].tolist()
-            for j in sources:
-                # check the last 5 nodes of the rest of the dataframe
-                rest_us_nodes = rest_df[rest_df['id'] == j]['node'][-10:].tolist()
-                duplicates = filter(set(us_nodes).__contains__, rest_us_nodes)
-                if duplicates:
-                    duplicate_sources.append(j)
+        #     us_nodes = this_df['node'][-30:].tolist()
+        #     for j in sources:
+        #         # check the last 5 nodes of the rest of the dataframe
+        #         rest_us_nodes = rest_df[rest_df['id'] == j]['node'][-30:].tolist()
+        #         duplicates = filter(set(us_nodes).__contains__, rest_us_nodes)
+        #         if duplicates:
+        #             duplicate_sources.append(j)
 
-        # ch_node = this_df['node'].iloc[-1]
-        # mask = rest_df['node'].isin([ch_node]).any()
-        # if mask:
-        #     duplicate_sources.append(src)
+            ch_node = this_df['node'].iloc[-1]
+            mask = rest_df['node'].isin([ch_node]).any()
+            if mask:
+                duplicate_sources.append(src)
 
     df_new = df[~df['id'].isin(duplicate_sources)]
     return df_new
@@ -523,17 +547,17 @@ def PlotProfilesByCluster(cluster_df):
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['reg_dist'].as_matrix(), src_df['slope'].as_matrix(), lw=1, color=colors[counter])
+                ax.plot(src_df['reg_dist'].as_matrix(), src_df['elevation'].as_matrix(), lw=1, color=colors[counter])
                 # save the colour to the cluster dataframe for later plots
                 cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
             counter +=1
         else:
-            ax.plot(this_df['reg_dist'].as_matrix(), this_df['slope'].as_matrix(), lw=1, color=threshold_color)
+            ax.plot(this_df['reg_dist'].as_matrix(), this_df['elevation'].as_matrix(), lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
             cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
         ax.set_xlabel('Distance from outlet (m)')
-        ax.set_ylabel('Gradient')
+        ax.set_ylabel('Elevation (m)')
         ax.set_title('Cluster {}'.format(int(cl)))
 
         plt.savefig(DataDirectory+fname_prefix+('_profiles_upstream_clustered_{}.png').format(int(cl)), dpi=300)
@@ -567,12 +591,12 @@ def MakeHillshadePlotClusters():
     HillshadeName = fname_prefix+'_hs'+raster_ext
 
     # create the map figure
-    MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
+    MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km",drapemaxthreshold=1000)
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
-        ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=5, zorder=1)
+        #ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
+        #MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=5, zorder=1)
         # plot the clustered profiles in the correct colour
         this_df = cluster_df[cluster_df.cluster_id == cl]
         this_colour = str(this_df.colour.unique()[0])
@@ -662,7 +686,7 @@ def PlotSlopeArea():
     sources = df.id.unique()
 
     # set up a figure
-    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
+    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=False, sharey=False)
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
@@ -679,6 +703,7 @@ def PlotSlopeArea():
         ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
+        ax[i].set_ylim(cluster_df['slope'].min()-0.0001, cluster_df['slope'].max()+0.0001)
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
@@ -786,7 +811,6 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
     parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m.", default = 2)
-    parser.add_argument("-shift", "--shift_steps", type=int, help="The number of steps that you want to shift the profiles by to prior to clustering. The default is 50. You can get the shift in metres by multiplying the shift steps by the spacing for the regularly spaced profiles (e.g. 50 with a step of 2 will be 100 m for testing the shift). Default = 50 steps", default = 50)
 
     args = parser.parse_args()
 
@@ -823,7 +847,7 @@ if __name__ == '__main__':
 
     # cluster the profiles
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr)
+    cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
     PlotProfilesByCluster(cluster_df)
 
     PlotMedianProfiles()
