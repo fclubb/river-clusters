@@ -360,6 +360,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     # define threshold for cluster determination
     thr = np.arccos(min_corr)
+    #thr = 2.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -597,7 +598,7 @@ def MakeHillshadePlotClusters(drape_lithology=True):
         LithoName = 'spatial_K_KRaster'+raster_ext
         MF.add_drape_image(LithoName, DataDirectory,alpha=0.5,colourmap="gray", show_colourbar = True, colorbarlabel='K', discrete_cmap=True, n_colours=2,cbar_type=str)
     else:
-        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
+        MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km")
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
@@ -692,7 +693,7 @@ def PlotSlopeArea():
     sources = df.id.unique()
 
     # set up a figure
-    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=False, sharey=False)
+    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,8), sharex=False, sharey=False)
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
@@ -714,7 +715,7 @@ def PlotSlopeArea():
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
     plt.ylabel('Gradient', labelpad=15)
-    plt.subplots_adjust(left=0.15)
+    plt.subplots_adjust(left=0.15, hspace=0.5)
 
     # save and clear the figure
     plt.savefig(DataDirectory+fname_prefix+('_SA_median.png'), dpi=300)
@@ -757,42 +758,6 @@ def PlotUniqueStreamsWithLength(step=2, slope_window_size=25):
     ax.set_ylabel('Number of unique channels')
 
     plt.savefig(DataDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300)
-    plt.clf()
-
-
-def MakeSlopeAreaPlots():
-    """
-    Function to make a plot of gradient against drainage area for each cluster.
-
-    Author: FJC
-    """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered.csv')
-
-    # find out some info
-    clusters = df.cluster_id.unique()
-    sources = df.id.unique()
-
-    # set up a figure
-    fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    ax = fig.add_subplot(gs[5:100,10:95])
-
-    # for each cluster, get the median gradient for a SA plot
-    for cl in clusters:
-        cluster_df = df[df.cluster_id == cl]
-        # get the drainage area bins
-        max_area = cluster_df.drainage_area.max()
-        median_gradients = [cluster_df[cluster_df.drainage_area == x].slope.median() for x in drainage_area]
-        # get the colour from the dataframe
-        this_colour = str(cluster_df.colour.unique()[0])
-        ax.scatter(drainage_area,median_gradients,color=this_colour, lw=1)
-
-    ax.set_xlabel('Drainage area (m$^2$)')
-    ax.set_ylabel('Gradient (m/m)')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    plt.savefig(DataDirectory+fname_prefix+('_slope_area_median.png'), dpi=300)
     plt.clf()
 
 
@@ -857,7 +822,7 @@ if __name__ == '__main__':
     # PlotProfilesByCluster(cluster_df)
     #
     # PlotMedianProfiles()
-    MakeHillshadePlotClusters()
-    #PlotSlopeArea()
+    # MakeHillshadePlotClusters()
+    PlotSlopeArea()
 
     #PlotUniqueStreamsWithLength()
