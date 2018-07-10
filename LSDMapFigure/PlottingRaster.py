@@ -1006,6 +1006,14 @@ class MapFigure(object):
         tick_labels = np.linspace(vmin, vmax, n_colours)
         if cbar_type == int:
             tick_labels = [str(int(x)) for x in tick_labels]
+        if cbar_type == str:
+            new_labels = []
+            tick_labels = [str('{:.2e}'.format(float(x))) for x in tick_labels]
+            for label in tick_labels:
+                a,b = label.split("e")
+                b = b.replace("0", "")
+                new_labels.append(a+' x 10$^{%s}$' % b)
+            tick_labels = new_labels
         else:
             tick_labels = [str(x) for x in tick_labels]
         print(tick_labels)
