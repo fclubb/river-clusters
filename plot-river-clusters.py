@@ -17,8 +17,8 @@ import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
-from scipy import stats
-from scipy.signal import correlate
+import scipy.stats as ss
+from scipy.ndimage.interpolation import shift
 from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
