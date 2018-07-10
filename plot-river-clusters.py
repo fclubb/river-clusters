@@ -306,7 +306,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
         df: pandas dataframe from the river profile csv.
         min_corr (float): minimum correlation threshold for clustering
         method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
-        'weighted', 'centroid', 'median', or 'ward'. Default is 'complete'.
+        'weighted', 'centroid', 'median', or 'ward'. Default is 'ward'.
 
     Author: AR, FJC
     """
@@ -344,7 +344,10 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             l = 0
             while dts[l] == 0:
                 l += 1
+            # # try to just cluster over the top 25% of each of the profiles
+            # new_l = int(0.25*l)+l
             tsi, tsj = tsi[l:], tsj[l:]
+            # tsi, tsj = tsi[new_l:], tsj[new_l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
             k += 1
 
@@ -360,7 +363,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     # define threshold for cluster determination
     thr = np.arccos(min_corr)
-    #thr = 2.2
+    #thr = 1.5
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -548,17 +551,17 @@ def PlotProfilesByCluster(cluster_df):
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['reg_dist'].as_matrix(), src_df['slope'].as_matrix(), lw=1, color=colors[counter])
+                ax.plot(src_df['reg_dist'].as_matrix(), src_df['elevation'].as_matrix(), lw=1, color=colors[counter])
                 # save the colour to the cluster dataframe for later plots
                 cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
             counter +=1
         else:
-            ax.plot(this_df['reg_dist'].as_matrix(), this_df['slope'].as_matrix(), lw=1, color=threshold_color)
+            ax.plot(this_df['reg_dist'].as_matrix(), this_df['elevation'].as_matrix(), lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
             cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
         ax.set_xlabel('Distance from outlet (m)')
-        ax.set_ylabel('Gradient')
+        ax.set_ylabel('Elevation (m)')
         ax.set_title('Cluster {}'.format(int(cl)))
 
         plt.savefig(DataDirectory+fname_prefix+('_profiles_upstream_clustered_{}.png').format(int(cl)), dpi=300)
@@ -569,7 +572,7 @@ def PlotProfilesByCluster(cluster_df):
 
     return cluster_df
 
-def MakeHillshadePlotClusters(drape_lithology=True):
+def MakeHillshadePlotClusters(drape_lithology=False):
     """
     Make a shaded relief plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
@@ -598,7 +601,7 @@ def MakeHillshadePlotClusters(drape_lithology=True):
         LithoName = 'spatial_K_KRaster'+raster_ext
         MF.add_drape_image(LithoName, DataDirectory,alpha=0.5,colourmap="gray", show_colourbar = True, colorbarlabel='K', discrete_cmap=True, n_colours=2,cbar_type=str)
     else:
-        MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km")
+        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
@@ -760,6 +763,28 @@ def PlotUniqueStreamsWithLength(step=2, slope_window_size=25):
     plt.savefig(DataDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300)
     plt.clf()
 
+def PlotLongitudinalProfiles():
+    """
+    Just make a simple plot of the river long profiles
+    """
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    sources = df['id'].unique()
+
+    for src in sources:
+        this_df = df[df['id'] == src]
+        ax.plot(this_df['reg_dist'], this_df['elevation'])
+
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Elevation (m)')
+
+    plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
+    plt.clf()
 
 if __name__ == '__main__':
 
@@ -808,21 +833,22 @@ if __name__ == '__main__':
     threshold_color = '#377eb8'
 
     # read in the original csv
-    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    #
-    # # calculate the slope
-    # df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
-    # df = CalculateSlope(df, args.slope_window)
-    #
-    # regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
-    #
-    # # cluster the profiles
-    # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    # PlotProfilesByCluster(cluster_df)
-    #
-    # PlotMedianProfiles()
-    # MakeHillshadePlotClusters()
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+
+    # calculate the slope
+    df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    df = CalculateSlope(df, args.slope_window)
+
+    regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+
+    # cluster the profiles
+    regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
+    PlotProfilesByCluster(cluster_df)
+
+    PlotMedianProfiles()
+    MakeHillshadePlotClusters()
     PlotSlopeArea()
+    PlotLongitudinalProfiles()
 
     #PlotUniqueStreamsWithLength()
