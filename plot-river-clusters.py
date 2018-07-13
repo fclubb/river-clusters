@@ -17,7 +17,7 @@ import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
-import scipy.stats as ss
+from scipy import stats
 from scipy.ndimage.interpolation import shift
 from CorrCoef import Pearson
 import math
@@ -26,6 +26,7 @@ from LSDMapFigure.PlottingRaster import MapFigure
 import sys
 from collections import defaultdict
 import os
+from matplotlib import ticker
 
 # Set up fonts for plots
 label_size = 10
@@ -151,7 +152,7 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
 
     return thinned_df, data
 
-def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
+def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
     that can be used for the time series clustering.  For each profile, the slope
@@ -161,7 +162,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
 
     Args:
         df: pandas dataframe from the river profile csv.
-        profile_len (int): number of data points in each profile (= distance from source)
+        profile_len (int): number of unique points you need to keep a profile
         step (int): step size that you want in metres. This should be greater than the maximum
         possible spacing between your points (max_spacing = sqrt(2 * DataRes^2)). Default = 2
         slope_window_size (int): window over which slope was calculated
@@ -217,6 +218,7 @@ def ProfilesRegDistVaryingLength(df, step=2, slope_window_size=25):
 
     # now remove non-unique profiles
     thinned_df = RemoveNonUniqueProfiles(thinned_df)
+    thinned_df = RemoveProfilesWithShortUniqueSection(thinned_df, profile_len)
 
     # write the thinned_df to output in case we want to reload
     thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
@@ -313,10 +315,6 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     print ("Now I'm going to do some hierarchical clustering...")
     np.set_printoptions(threshold='nan')
 
-    # remove non-unique profiles
-    df = RemoveNonUniqueProfiles(df)
-    df = RemoveProfilesWithShortUniqueSection(df, 2)
-
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
     n = len(sources)
@@ -337,17 +335,19 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             tsi = data[i]
             tsj = data[j]
             if len(tsi) > len(tsj):
+                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - changing so we just cluster the TOP of each profile
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
+                #tsj = tsj[len(tsj)-len(tsi):]
             dts = tsi - tsj
             l = 0
             while dts[l] == 0:
                 l += 1
             # # try to just cluster over the top 25% of each of the profiles
-            # new_l = int(0.25*l)+l
+            #new_l = int(0.25*l)+l
             tsi, tsj = tsi[l:], tsj[l:]
-            # tsi, tsj = tsi[new_l:], tsj[new_l:]
+            #tsi, tsj = tsi[new_l:], tsj[new_l:]
             cc[k] = np.corrcoef(tsi, tsj)[0, 1]
             k += 1
 
@@ -361,9 +361,13 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
 
+    # make a plot of the distance vs number of clusters. Use this to determine
+    # the threshold
+    thr = PlotDistanceVsNClusters(ln)
+
     # define threshold for cluster determination
-    thr = np.arccos(min_corr)
-    #thr = 1.5
+    #thr = np.arccos(min_corr)
+    #thr = 1.8
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -377,7 +381,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     plt.title('Hierarchical Clustering Dendrogram')
     plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
@@ -387,6 +391,53 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
         df.loc[df.id==id, 'cluster_id'] = cl[i]
 
     return df
+
+def PlotDistanceVsNClusters(ln):
+    """
+    Make a plot of the distance between each cluster compared to the
+    number of clusters. Maybe use this to determine where to put the distance
+    threshold
+
+    Args:
+        ln: linkage matrix from clustering
+
+    Author: FJC
+    """
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    print ln
+    # each iteration merges one cluster. so we start with n_clusters = n samples,
+    # and then it reduces by one each time.
+    clusters = []
+    n_clusters = len(ln)+1
+    for l in ln:
+        # the distance is the 3rd column.
+        this_dist = l[2]
+        ax.scatter(n_clusters, this_dist, c='k')
+        clusters.append(n_clusters)
+        n_clusters -= 1
+
+    # find the difference in the distances between each point in the linkage array
+    dist = ln[:,2]
+    deltas = [j-i for i, j in zip(dist[:-1], dist[1:])]
+    # get the argmax of the difference
+    i = np.argmax(deltas)
+    n_clusters = clusters[i+1]
+    # now find the distance threshold corresponding to this
+    thr = dist[i]
+    print ('The optimum distance threshold is '+str(thr))
+    # now save the figure
+    ax.set_xlabel('Number of clusters')
+    ax.set_ylabel('Distance between clusters')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=2))
+    plt.savefig(DataDirectory+fname_prefix+'_clusters_dist.png', dpi=300)
+    plt.clf()
+
+    return thr
+
 
 def CalculateSlope(df, slope_window_size):
     """
@@ -466,6 +517,7 @@ def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
     Remove any profiles which only have a unique section that is
     shorter than a threshold length.
     """
+    print ("Removing short unique profiles, the threshold length is: "+str(threshold_len))
     all_nodes = df['node'].tolist()
     sources = df['id'].unique()
     unique_sources = []
@@ -477,11 +529,14 @@ def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
         unique_nodes = 0
         for node in these_nodes:
             count = all_nodes.count(node)
+            #print count
             if count < 2:
                 unique_nodes += 1
+        #print unique_nodes
         if unique_nodes > threshold_len:
             unique_sources.append(src)
 
+    print ('Number of new sources: '+str(len(unique_sources)), 'number of old sources: '+str(len(sources)))
     df_new = df[df['id'].isin(unique_sources)]
     return df_new
 
@@ -713,7 +768,7 @@ def PlotSlopeArea():
         ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        ax[i].set_ylim(cluster_df['slope'].min()-0.0001, cluster_df['slope'].max()+0.0001)
+        ax[i].set_ylim(0.0001, 1)
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
@@ -804,7 +859,7 @@ if __name__ == '__main__':
     # The options for clustering
     parser.add_argument("-len", "--profile_len", type=int, help="Remove profiles shorter than this length (in m) from the clustering analysis", default=100)
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
-    parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='complete')
+    parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='ward')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
     parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m.", default = 2)
 
@@ -832,14 +887,14 @@ if __name__ == '__main__':
     colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
     threshold_color = '#377eb8'
 
-    # read in the original csv
+    # # read in the original csv
     df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
     # calculate the slope
     df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
     df = CalculateSlope(df, args.slope_window)
 
-    regular_df = ProfilesRegDistVaryingLength(df, step=args.step, slope_window_size=args.slope_window)
+    regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
 
     # cluster the profiles
     regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
