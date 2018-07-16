@@ -335,7 +335,7 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             tsi = data[i]
             tsj = data[j]
             if len(tsi) > len(tsj):
-                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - changing so we just cluster the TOP of each profile
+                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - testing just clustering the top of each profile
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
@@ -857,11 +857,11 @@ if __name__ == '__main__':
     parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
 
     # The options for clustering
-    parser.add_argument("-len", "--profile_len", type=int, help="Remove profiles shorter than this length (in m) from the clustering analysis", default=100)
+    parser.add_argument("-len", "--profile_len", type=int, help="The minimum length over which a profile has to be unique (i.e. does not share nodes with any other profile)", default=10)
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
-    parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'complete'.", default='ward')
-    parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5.", default=0.5)
-    parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m.", default = 2)
+    parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'ward'.", default='ward')
+    parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5. DEPRECATED - now we calculate the threshold statistically.", default=0.5)
+    parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
 
     args = parser.parse_args()
 
@@ -881,6 +881,13 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
+
+    # print the arguments that you used to an output file for reproducibility
+    with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:
+        for arg in vars(args):
+            output.write(str(arg)+','+str(getattr(args, arg))+'\n')
+        output.close()
+
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
@@ -905,5 +912,7 @@ if __name__ == '__main__':
     MakeHillshadePlotClusters()
     PlotSlopeArea()
     PlotLongitudinalProfiles()
+
+    print('Enjoy your clusters, pal')
 
     #PlotUniqueStreamsWithLength()
