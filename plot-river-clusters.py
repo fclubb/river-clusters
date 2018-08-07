@@ -405,7 +405,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
 
     Author: FJC, AR
     """
-    print ("Now I'm going to do some hierarchical clustering...")
+    print ("Now I'm going to do some hierarchical clustering by drainage area...")
     np.set_printoptions(threshold='nan')
 
     # get the data from the dataframe into the right format for clustering
@@ -455,13 +455,14 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
                     new_tsj.append(tsj[x])
             #        print "Not a nan"
             # remove parts of the time series which are identical
-            new_tsi = np.asarray(new_tsi)
-            new_tsj = np.asarray(new_tsj)
+            new_tsi = np.array(new_tsi)
+            new_tsj = np.array(new_tsj)
             dts = new_tsi - new_tsj
             l = 0
-            while dts[l] == 0:
-                l += 1
-            new_tsi, new_tsj = new_tsi[l:], new_tsj[l:]
+            for x in range(len(dts)):
+                if dts[x] == 0:
+                    l += 1
+            new_tsi, new_tsj = new_tsi[:l], new_tsj[:l]
             print new_tsi, new_tsj
             cc[k] = np.corrcoef(new_tsi, new_tsj)[0, 1]
             k += 1
@@ -471,7 +472,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     # distances
     dd = np.arccos(cc)
     #print dd
-    print len(dd)
+    #print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
@@ -482,7 +483,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
 
     # define threshold for cluster determination
     #thr = np.arccos(min_corr)
-    #thr = 1.7
+    #thr = 0.6
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -957,6 +958,25 @@ def PlotLongitudinalProfiles():
     plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
     plt.clf()
 
+def MakeShadedSlopeMap():
+    """
+    Make a nice shaded slope image
+    """
+    # set figure sizes based on format
+    fig_width_inches = 4.92126
+
+    # some raster names
+    raster_ext = '.bil'
+    BackgroundRasterName = fname_prefix+raster_ext
+    HillshadeName = fname_prefix+'_hs'+raster_ext
+    SlopeName = fname_prefix+'_slope'+raster_ext
+
+    # create the map figure
+    MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km",colourbar_location='right')
+    MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
+
+    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+
 if __name__ == '__main__':
 
     # If there are no arguments, send to the welcome screen
@@ -1010,27 +1030,28 @@ if __name__ == '__main__':
     colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
     threshold_color = '#377eb8'
 
-    # # read in the original csv
+    # # # read in the original csv
     # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    #
-    # # calculate the slope
-    # df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
+    # # #
+    # # # # calculate the slope
+    # # df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
     # df = CalculateSlope(df, args.slope_window)
-    # df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
-
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
-    cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
+    # # df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
+    #
+    # # df = pd.read_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
+    # # cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
     # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
     #
     # # cluster the profiles
     # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
     # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    PlotProfilesByCluster(cluster_df)
-    #
-    #PlotMedianProfiles()
-    MakeHillshadePlotClusters()
-    PlotSlopeArea()
-    #PlotLongitudinalProfiles()
+    # PlotProfilesByCluster(cluster_df)
+    # #
+    # #PlotMedianProfiles()
+    # MakeHillshadePlotClusters()
+    # PlotSlopeArea()
+    # PlotLongitudinalProfiles()
+    MakeShadedSlopeMap()
 
     print('Enjoy your clusters, pal')
 
