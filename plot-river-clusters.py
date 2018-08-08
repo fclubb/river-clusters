@@ -64,6 +64,21 @@ def find_nearest_idx(array,value):
     else:
         return idx
 
+def find_difference_between_arrays(x, y):
+    """
+    Function to calculate a difference between two np arrays with the same
+    dimensions. If values are all positive, scales from 0 to 1: 1 = no difference, 0 = bad.
+    1 - (||(X-Y)/(X+Y)|| / sqrt(n))
+    """
+    n = len(x)
+    #print x, y
+    num = x - y
+    den = x + y
+    div = np.divide(num,den)
+    norm = np.linalg.norm(div)
+    diff = 1-(norm/np.sqrt(n))
+    return diff
+
 def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
@@ -335,11 +350,11 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             tsi = data[i]
             tsj = data[j]
             if len(tsi) > len(tsj):
-                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - testing just clustering the top of each profile
-                tsi = tsi[:len(tsj)]
+                tsi = tsi[len(tsi)-len(tsj):]  # Fiona - testing just clustering the top of each profile
+                #tsi = tsi[:len(tsj)]
             else:
-                tsj = tsj[:len(tsi)]
-                #tsj = tsj[len(tsj)-len(tsi):]
+                #tsj = tsj[:len(tsi)]
+                tsj = tsj[len(tsj)-len(tsi):]
             dts = tsi - tsj
             l = 0
             while dts[l] == 0:
@@ -406,7 +421,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     Author: FJC, AR
     """
     print ("Now I'm going to do some hierarchical clustering by drainage area...")
-    np.set_printoptions(threshold='nan')
+    #np.set_printoptions(threshold='nan')
 
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
@@ -414,17 +429,24 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
 
     # right. we're going to take the longest profile and use that as a template
     # for the drainage area array
-    trunk_id = df['id'][df['distance_from_outlet'].idxmax()]
-    trunk_areas = df['drainage_area'][df['id'] == trunk_id].as_matrix()
-    print trunk_areas
+    # trunk_id = df['id'][df['distance_from_outlet'].idxmax()]
+    # trunk_areas = df['drainage_area'][df['id'] == trunk_id].as_matrix()
+    # print trunk_areas
+
+    all_areas = df['drainage_area'].as_matrix()
+    #sort the areas
+    sorted_areas = np.sort(all_areas)
+    print (len(sorted_areas))
+    reg_areas = np.unique(sorted_areas[0:-1:30])
+    print (len(reg_areas))
 
     # create matrix for the data
-    data = np.empty((len(sources), len(trunk_areas)))
+    data = np.empty((len(sources), len(reg_areas)))
 
     # now for each profile, find the nearest point on the trunk areas array and assign the slope value to this.
     for x, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        reg_slopes = np.empty(len(trunk_areas))
+        reg_slopes = np.empty(len(reg_areas))
         reg_slopes[:] = np.nan
 
         df_array = this_df.as_matrix()[::-1]
@@ -432,7 +454,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
         areas = df_array[:,8]
         for idx, i in enumerate(areas):
             #print i
-            idx_j = find_nearest_idx(trunk_areas, i)
+            idx_j = find_nearest_idx(reg_areas, i)
             #print ('THIS AREA: ', trunk_areas[idx_j])
             reg_slopes[idx_j] = slopes[idx]
         data[x] = reg_slopes
@@ -447,12 +469,14 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
             tsj = data[j]
             new_tsi = []
             new_tsj = []
-            #print tsi, tsj
+            # print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
+            # print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
             # remove any areas where there isn't data in both time series
             for x in range(len(tsi)):
                 if not (np.isnan(tsi[x])) and not (np.isnan(tsj[x])):
                     new_tsi.append(tsi[x])
                     new_tsj.append(tsj[x])
+            #print ("LEN AFTER REMOVING NANS", len(new_tsi))
             #        print "Not a nan"
             # remove parts of the time series which are identical
             new_tsi = np.array(new_tsi)
@@ -463,12 +487,17 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
                 if dts[x] == 0:
                     l += 1
             new_tsi, new_tsj = new_tsi[:l], new_tsj[:l]
-            print new_tsi, new_tsj
-            cc[k] = np.corrcoef(new_tsi, new_tsj)[0, 1]
+            #print ("LEN OF UNIQUE SECTION: ", len(new_tsi))
+            # take the log of them to test the correlation effect
+            log_tsi = np.log(new_tsi)
+            log_tsj = np.log(new_tsj)
+            #cc[k] = np.corrcoef(new_tsi, new_tsj)[0, 1]
+            #cc[k] = np.corrcoef(log_tsi, log_tsj)[0, 1]
+            cc[k] = find_difference_between_arrays(new_tsi, new_tsj)
             k += 1
 
     #print np.isnan(cc)
-    #print cc
+    print cc
     # distances
     dd = np.arccos(cc)
     #print dd
@@ -476,6 +505,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
+    #ln = linkage(cc, method=method)
 
     # make a plot of the distance vs number of clusters. Use this to determine
     # the threshold
@@ -483,12 +513,12 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
 
     # define threshold for cluster determination
     #thr = np.arccos(min_corr)
-    #thr = 0.6
+    #thr = 1.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print cl
+    #print cl
 
     set_link_color_palette(colors)
 
@@ -525,7 +555,7 @@ def PlotDistanceVsNClusters(ln):
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
     ax = fig.add_subplot(gs[5:100,10:95])
 
-    print ln
+    #print ln
     # each iteration merges one cluster. so we start with n_clusters = n samples,
     # and then it reduces by one each time.
     clusters = []
@@ -705,9 +735,16 @@ def PlotProfilesByCluster(cluster_df):
 
     Author: FJC
     """
+
+    # find the maximum distance from outlet in each cluster and use this to sort
+    # the data
+    idx = cluster_df.groupby(['cluster_id'])['distance_from_outlet'].transform(max) == df['distance_from_outlet']
+    lengths = cluster_df[idx]
+    lengths = lengths.sort_values(by=['distance_from_outlet'])
+    print lengths
     # find the unique clusters for plotting
-    clusters = cluster_df['cluster_id'].unique()
-    clusters.sort()
+    clusters = lengths['cluster_id'].tolist()
+
 
     counter = 0
     for cl in clusters:
@@ -1030,28 +1067,28 @@ if __name__ == '__main__':
     colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
     threshold_color = '#377eb8'
 
-    # # # read in the original csv
-    # df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-    # # #
-    # # # # calculate the slope
-    # # df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
-    # df = CalculateSlope(df, args.slope_window)
-    # # df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
-    #
-    # # df = pd.read_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
-    # # cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
+    # # read in the original csv
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+    # #
+    # # # calculate the slope
+    # df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
+    df = CalculateSlope(df, args.slope_window)
+    df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
+
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
+    cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
     # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
     #
     # # cluster the profiles
     # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
     # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    # PlotProfilesByCluster(cluster_df)
+    PlotProfilesByCluster(cluster_df)
     # #
     # #PlotMedianProfiles()
-    # MakeHillshadePlotClusters()
-    # PlotSlopeArea()
+    MakeHillshadePlotClusters()
+    PlotSlopeArea()
     # PlotLongitudinalProfiles()
-    MakeShadedSlopeMap()
+    # MakeShadedSlopeMap()
 
     print('Enjoy your clusters, pal')
 
