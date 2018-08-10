@@ -76,7 +76,9 @@ def find_difference_between_arrays(x, y):
     den = x + y
     div = np.divide(num,den)
     norm = np.linalg.norm(div)
+    #print norm
     diff = 1-(norm/np.sqrt(n))
+    #print diff
     return diff
 
 def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
@@ -429,20 +431,12 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     sources = df['id'].unique()
     n = len(sources)
 
-    # find the maximum distance from outlet in each source and use this to sort
-    # the data. I hope this fixes the colour problem.
-    # ln = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['id'])
-    # ln = ln.sort_values('distance_from_outlet')
-    # sources = ln['id'].tolist()
-    # n = len(sources)
-
-
     all_areas = df['drainage_area'].as_matrix()
     #sort the areas
     sorted_areas = np.sort(all_areas)
     #print (len(sorted_areas))
     reg_areas = np.unique(sorted_areas[0:-1:30])
-    #print (len(reg_areas))
+    print (len(reg_areas))
 
     # create matrix for the data
     data = np.empty((len(sources), len(reg_areas)))
@@ -473,8 +467,8 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
             tsj = data[j]
             new_tsi = []
             new_tsj = []
-            # print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
-            # print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
+            #print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
+            #print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
             # remove any areas where there isn't data in both time series
             for x in range(len(tsi)):
                 if not (np.isnan(tsi[x])) and not (np.isnan(tsj[x])):
@@ -533,20 +527,23 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     threshold_color = '#377eb8'
 
     # now find the order of the cluster ids and assign the colours accordingly
-    lengths = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
-    sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
-    clusters = np.linspace(1,cl.max()+1,cl.max())
-    print sorted_colors
+    max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
+    lengths = max_df['distance_from_outlet'].tolist()
+    clusters = max_df['cluster_id'].tolist()
+    print lengths
     print clusters
-    for i, c in enumerate(sorted_colors):
-        df.loc[df.cluster_id==clusters[i], 'colour'] = c
+    sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
+    sorted_colors = []
+    for i, c in enumerate(sorted_clusters):
+        sorted_colors.append(colors[i])
+        df.loc[df.cluster_id==c, 'colour'] = colors[i]
 
     set_link_color_palette(sorted_colors)
 
     plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
+    #plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color, no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
@@ -826,11 +823,11 @@ def MakeHillshadePlotClusters(drape_lithology=False):
 
     # create the map figure
     if drape_lithology:
-        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km",colourbar_location='bottom')
+        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM",colourbar_location='bottom')
         LithoName = 'spatial_K_KRaster'+raster_ext
         MF.add_drape_image(LithoName, DataDirectory,alpha=0.5,colourmap="gray", show_colourbar = True, colorbarlabel='K', discrete_cmap=True, n_colours=2,cbar_type=str)
     else:
-        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
+        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM")
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
@@ -1029,7 +1026,7 @@ def MakeShadedSlopeMap():
     SlopeName = fname_prefix+'_slope'+raster_ext
 
     # create the map figure
-    MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM_km",colourbar_location='right')
+    MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM",colourbar_location='right')
     MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
@@ -1099,12 +1096,12 @@ if __name__ == '__main__':
     # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
     # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
     PlotProfilesByCluster()
-    # # #
-    # # #PlotMedianProfiles()
+    # #
+    # #PlotMedianProfiles()
     MakeHillshadePlotClusters()
     PlotSlopeArea()
     # # PlotLongitudinalProfiles()
-    # # MakeShadedSlopeMap()
+    #MakeShadedSlopeMap()
 
     print('Enjoy your clusters, pal')
 

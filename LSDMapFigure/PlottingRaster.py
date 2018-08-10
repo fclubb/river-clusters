@@ -350,7 +350,7 @@ class MapFigure(object):
 
         if self._coord_type == "UTM":
             self.tick_xlocs,self.tick_ylocs,self.tick_x_labels,self.tick_y_labels = LSDP.GetTicksForUTMNoInversion(self._BaseRasterFullName,self._xmax,self._xmin,
-                             self._ymax,self._ymin,self._n_target_ticks,self.min_tick_spacing)
+                             self._ymax,self._ymin,self._n_target_ticks,minimum_tick_spacing=100)
         elif self._coord_type == "UTM_km":
             self.tick_xlocs,self.tick_ylocs,self.tick_x_labels,self.tick_y_labels = LSDP.GetTicksForUTMNoInversion(self._BaseRasterFullName,self._xmax,self._xmin,
                              self._ymax,self._ymin,self._n_target_ticks,minimum_tick_spacing=1000)
