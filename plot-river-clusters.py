@@ -993,7 +993,7 @@ def PlotLongitudinalProfiles():
     """
     Just make a simple plot of the river long profiles
     """
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv')
 
     # set up a figure
     fig = plt.figure(1, facecolor='white')
@@ -1004,7 +1004,7 @@ def PlotLongitudinalProfiles():
 
     for src in sources:
         this_df = df[df['id'] == src]
-        ax.plot(this_df['reg_dist'], this_df['elevation'])
+        ax.plot(this_df['distance_from_outlet'], this_df['elevation'])
 
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
@@ -1030,6 +1030,30 @@ def MakeShadedSlopeMap():
     MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+
+def PlotTrunkChannel():
+    """
+    Make a simple plot of the longest channel. This is mostly to use for the model runs.
+    """
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv')
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
+
+    this_df = df[df['id'] == trunk_src]
+    ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
+
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Elevation (m)')
+    ax.set_xlim(0,2500)
+    ax.set_ylim(0,35)
+
+    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
+    plt.clf()
 
 if __name__ == '__main__':
 
@@ -1089,17 +1113,18 @@ if __name__ == '__main__':
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
 
-    cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
-    # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
-    #
-    # # cluster the profiles
-    # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    PlotProfilesByCluster()
+    # cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
+    # # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
     # #
-    # #PlotMedianProfiles()
-    MakeHillshadePlotClusters()
-    PlotSlopeArea()
+    # # # cluster the profiles
+    # # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    # # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
+    # PlotProfilesByCluster()
+    # # #
+    # # #PlotMedianProfiles()
+    # MakeHillshadePlotClusters()
+    # PlotSlopeArea()
+    PlotTrunkChannel()
     # # PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
 
