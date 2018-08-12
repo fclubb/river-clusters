@@ -1049,8 +1049,8 @@ def PlotTrunkChannel():
 
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
-    ax.set_xlim(0,2500)
-    ax.set_ylim(0,35)
+    #ax.set_xlim(0,2500)
+    #ax.set_ylim(0,35)
 
     plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
     plt.clf()
@@ -1113,17 +1113,17 @@ if __name__ == '__main__':
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
 
-    # cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
-    # # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
+    cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
+    # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
+    #
+    # # cluster the profiles
+    # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
+    PlotProfilesByCluster()
     # #
-    # # # cluster the profiles
-    # # regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    # # cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    # PlotProfilesByCluster()
-    # # #
-    # # #PlotMedianProfiles()
-    # MakeHillshadePlotClusters()
-    # PlotSlopeArea()
+    # #PlotMedianProfiles()
+    MakeHillshadePlotClusters()
+    PlotSlopeArea()
     PlotTrunkChannel()
     # # PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
