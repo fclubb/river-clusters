@@ -71,12 +71,15 @@ def find_difference_between_arrays(x, y):
     1 - (||(X-Y)/(X+Y)|| / sqrt(n))
     """
     n = len(x)
+    #print n
     #print x, y
     num = x - y
+    #print num
     den = x + y
     div = np.divide(num,den)
     norm = np.linalg.norm(div)
     #print norm
+    #print np.sqrt(n)
     diff = 1-(norm/np.sqrt(n))
     #print diff
     return diff
@@ -159,7 +162,7 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
         # ax.plot(reg_dist[::-1], reg_slope, lw=1)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv',index=False)
     #
     # # now save the figure
     # ax.set_xlabel('Distance from source (m)')
@@ -238,7 +241,7 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
     thinned_df = RemoveProfilesWithShortUniqueSection(thinned_df, profile_len)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv', index=False)
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')
@@ -434,7 +437,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     all_areas = df['drainage_area'].as_matrix()
     #sort the areas
     sorted_areas = np.sort(all_areas)
-    #print (len(sorted_areas))
+    print (len(sorted_areas))
     reg_areas = np.unique(sorted_areas[0:-1:30])
     print (len(reg_areas))
 
@@ -447,9 +450,9 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
         reg_slopes = np.empty(len(reg_areas))
         reg_slopes[:] = np.nan
 
-        df_array = this_df.as_matrix()[::-1]
-        slopes = df_array[:,-1]
-        areas = df_array[:,8]
+        #df_array = this_df.as_matrix()[::-1]
+        slopes = this_df['slope'].as_matrix()
+        areas = this_df['drainage_area'].as_matrix()
         for idx, i in enumerate(areas):
             #print i
             idx_j = find_nearest_idx(reg_areas, i)
@@ -467,14 +470,14 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
             tsj = data[j]
             new_tsi = []
             new_tsj = []
-            #print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
-            #print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
+            # print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
+            # print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
             # remove any areas where there isn't data in both time series
             for x in range(len(tsi)):
                 if not (np.isnan(tsi[x])) and not (np.isnan(tsj[x])):
                     new_tsi.append(tsi[x])
                     new_tsj.append(tsj[x])
-            #print ("LEN AFTER REMOVING NANS", len(new_tsi))
+            # print ("LEN AFTER REMOVING NANS", len(new_tsi))
             #        print "Not a nan"
             # remove parts of the time series which are identical
             new_tsi = np.array(new_tsi)
@@ -549,7 +552,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
     plt.clf()
 
-    df.to_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv')
+    df.to_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv', index=False)
     return df
 
 def PlotDistanceVsNClusters(ln):
@@ -794,7 +797,7 @@ def PlotProfilesByCluster():
         plt.clf()
 
     # write the clustered dataframe to csv
-    #cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+    #cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv', index=False)
 
     return cluster_df
 
@@ -1111,7 +1114,7 @@ if __name__ == '__main__':
         df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
         # calculate the slope
         df = CalculateSlope(df, args.slope_window)
-        df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv')
+        df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
     cluster_df = ClusterProfilesDrainageArea(df, profile_len = args.profile_len, step=args.step)
     # regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
