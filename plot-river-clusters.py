@@ -271,16 +271,18 @@ def GetProfilesByStreamOrder(df,step=2,slope_window_size=25,stream_order=1):
 
     # only keep the nodes belonging to the corresponding stream order
     so_df = df[df['stream_order'] == stream_order]
+    #print so_df
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
-    source_ids = df['id'].unique()
+    source_ids = so_df['id'].unique()
     print source_ids
     rows_list = []
     for i, source in enumerate(source_ids):
         this_df = so_df[so_df['id'] == source]
         # get the distances from the channel head
         distances = [this_df.distance_from_outlet.max()-x for x in this_df.distance_from_outlet]
+    #    print distances
         # create new array of regularly spaced differences
         reg_dist = np.arange(step, int(np.max(distances)+step), step)
 
@@ -371,9 +373,8 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     source_ids = df['id'].unique()
 
     plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color,no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
@@ -405,14 +406,14 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
     n = len(sources)
-    print sources
-    print n
+    #print sources
+    #print n
     data = []
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
         data.append(this_df['slope'].as_matrix())
-    print data
+    #print data
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
@@ -442,7 +443,7 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
             k += 1
 
     #print np.isnan(cc)
-    print cc
+    #print cc
     # distances
     dd = np.arccos(cc)
     #print dd
@@ -466,7 +467,7 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
-    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')[:cl.max()]
+    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
     threshold_color = '#377eb8'
     clusters = df['cluster_id'].unique()
 
@@ -479,9 +480,8 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     source_ids = df['id'].unique()
 
     plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color,no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_dendrogram_SO{}.png".format(stream_order), dpi=300)
@@ -815,7 +815,7 @@ def RemoveNonUniqueProfiles(df):
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
-def PlotProfilesByCluster():
+def PlotProfilesByCluster(stream_order=1):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -837,7 +837,7 @@ def PlotProfilesByCluster():
     # print lengths
     # # find the unique clusters for plotting
     # clusters = lengths['cluster_id'].tolist()
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
     clusters = cluster_df['cluster_id'].unique()
     #clusters.sort()
 
@@ -857,7 +857,7 @@ def PlotProfilesByCluster():
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['distance_from_outlet'].as_matrix(), src_df['elevation'].as_matrix(), lw=1, color=this_colour)
+                ax.plot(src_df['reg_dist'].as_matrix(), src_df['slope'].as_matrix(), lw=1, color=this_colour)
                 # save the colour to the cluster dataframe for later plots
                 #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
             #counter +=1
@@ -866,11 +866,11 @@ def PlotProfilesByCluster():
             # save the colour to the cluster dataframe for later plots
             #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
-        ax.set_xlabel('Distance from outlet (m)')
-        ax.set_ylabel('Elevation (m)')
+        ax.set_xlabel('Distance from source (m)')
+        ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
-        plt.savefig(DataDirectory+fname_prefix+('_profiles_upstream_clustered_{}.png').format(int(cl)), dpi=300)
+        plt.savefig(DataDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300)
         plt.clf()
 
     # write the clustered dataframe to csv
@@ -906,15 +906,15 @@ def MakeHillshadePlotClusters(stream_order=1):
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
-        #ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        #MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=5, zorder=1)
+        ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
+        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.9',manual_size=2, zorder=1, alpha=0.5)
         # plot the clustered profiles in the correct colour
         this_df = cluster_df[cluster_df.cluster_id == cl]
         this_colour = str(this_df.colour.unique()[0])
         ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=5)
+        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=3)
 
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 def PlotMedianProfiles():
     """
@@ -1150,7 +1150,8 @@ if __name__ == '__main__':
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'ward'.", default='ward')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5. DEPRECATED - now we calculate the threshold statistically.", default=0.5)
-    parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
+    parser.add_argument("-step", "--step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
+    parser.add_argument("-so", "--stream_order", type=int, help="The stream order that you wish to cluster over. Default is 1.", default=1)
 
     args = parser.parse_args()
 
@@ -1192,19 +1193,17 @@ if __name__ == '__main__':
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
     # get the profiles for the chosen stream order
-    stream_orders = [1,2,3,4]
-    for s in stream_orders:
-        new_df = GetProfilesByStreamOrder(df, args.step, args.slope_window, s)
+    new_df = GetProfilesByStreamOrder(df, args.step, args.slope_window, args.stream_order)
 
-        # do the clustering
-        ClusterProfilesVaryingLength(new_df, args.method, s)
-        #PlotProfilesByCluster()
-        # # #
-        # # #PlotMedianProfiles()
-        MakeHillshadePlotClusters(s)
+    # do the clustering
+    ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
+    PlotProfilesByCluster(args.stream_order)
+    # # #
+    # # #PlotMedianProfiles()
+    MakeHillshadePlotClusters(args.stream_order)
     # PlotSlopeArea()
     # PlotTrunkChannel()
-    # # PlotLongitudinalProfiles()
+    #PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
 
     print('Enjoy your clusters, pal')
