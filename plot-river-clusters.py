@@ -78,9 +78,11 @@ def find_difference_between_arrays(x, y):
     den = x + y
     div = np.divide(num,den)
     norm = np.linalg.norm(div)
+    #mean_diff = abs(np.mean(x - y))
     #print norm
     #print np.sqrt(n)
     diff = 1-(norm/np.sqrt(n))
+    #diff = 1 - mean_diff
     #print diff
     return diff
 
@@ -1115,7 +1117,7 @@ if __name__ == '__main__':
     else:
         # read in the original csv
         df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
-        df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
+        #df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
         # calculate the slope
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
