@@ -437,7 +437,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     n = len(sources)
 
     all_areas = df['drainage_area'].as_matrix()
-    all_areas = np.log10(all_areas)
+    #all_areas = np.log10(all_areas)
     #sort the areas
     sorted_areas = np.sort(all_areas)
     print (len(sorted_areas))
@@ -456,8 +456,8 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
         #df_array = this_df.as_matrix()[::-1]
         slopes = this_df['slope'].as_matrix()
         areas = this_df['drainage_area'].as_matrix()
-        slopes = np.log10(slopes)
-        areas = np.log10(areas)
+        #slopes = np.log10(slopes)
+        #areas = np.log10(areas)
         for idx, i in enumerate(areas):
             #print i
             idx_j = find_nearest_idx(reg_areas, i)
