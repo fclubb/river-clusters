@@ -435,6 +435,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     n = len(sources)
 
     all_areas = df['drainage_area'].as_matrix()
+    all_areas = np.log10(all_areas)
     #sort the areas
     sorted_areas = np.sort(all_areas)
     print (len(sorted_areas))
@@ -453,6 +454,8 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
         #df_array = this_df.as_matrix()[::-1]
         slopes = this_df['slope'].as_matrix()
         areas = this_df['drainage_area'].as_matrix()
+        slopes = np.log10(slopes)
+        areas = np.log10(areas)
         for idx, i in enumerate(areas):
             #print i
             idx_j = find_nearest_idx(reg_areas, i)
@@ -490,8 +493,8 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
             new_tsi, new_tsj = new_tsi[:l], new_tsj[:l]
             #print ("LEN OF UNIQUE SECTION: ", len(new_tsi))
             # take the log of them to test the correlation effect
-            log_tsi = np.log(new_tsi)
-            log_tsj = np.log(new_tsj)
+            #log_tsi = np.log(new_tsi)
+            #log_tsj = np.log(new_tsj)
             #cc[k] = np.corrcoef(new_tsi, new_tsj)[0, 1]
             #cc[k] = np.corrcoef(log_tsi, log_tsj)[0, 1]
             cc[k] = find_difference_between_arrays(new_tsi, new_tsj)
@@ -1112,6 +1115,7 @@ if __name__ == '__main__':
     else:
         # read in the original csv
         df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+        df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
         # calculate the slope
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
