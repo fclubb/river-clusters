@@ -24,6 +24,7 @@ for i in range(n):
     y = np.random.random(100)
     ax[i].plot(y, c = colors[i])
 
+plt.title('Time series', fontsize=16)
 plt.xlabel('Time (e.g. hours)', fontsize=16)
 plt.ylabel('Some kind of metric', fontsize=16)
-plt.savefig('/home/clubb/Bitbucket/hrt_workshop/figures/random_ts.png', dpi=300, transparent=True)
+plt.savefig('/home/clubb/Bitbucket/hrt_workshop/figures/random_ts.png', dpi=300)
