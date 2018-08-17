@@ -756,7 +756,7 @@ def RemoveProfilesShorterThanThresholdLength(df, profile_len=5):
     (number of nodes)
     """
     # find the maximum distance for each id and remove any less than the profile length
-    df = df[df.groupby('id').count >= profile_len]
+    df = df.loc[df.groupby('id').filter(lambda x: len(x) >= profile_len).index]
     return df
 
 def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
