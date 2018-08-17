@@ -471,16 +471,15 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     threshold_color = '#377eb8'
     clusters = df['cluster_id'].unique()
 
-    max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
-    lengths = max_df['distance_from_outlet'].tolist()
-    clusters = max_df['cluster_id'].tolist()
-    print lengths
-    print clusters
-    sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
-    sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
-    for i, c in enumerate(sorted_clusters):
-        print('ID = {}'.format(sorted_clusters[i]))
-        df.loc[df.cluster_id==sorted_clusters[i], 'colour'] = sorted_colors[i]
+    # max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
+    # lengths = max_df['distance_from_outlet'].tolist()
+    # clusters = max_df['cluster_id'].tolist()
+    # print lengths
+    # print clusters
+    # sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
+    # sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
+    for i, c in enumerate(clusters):
+        df.loc[df.cluster_id==c, 'colour'] = colors[i]
 
     set_link_color_palette(colors)
 
