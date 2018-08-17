@@ -471,9 +471,16 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     threshold_color = '#377eb8'
     clusters = df['cluster_id'].unique()
 
-    # now find the order of the cluster ids and assign the colours accordingly
-    for i, c in enumerate(clusters):
-        df.loc[df.cluster_id==c, 'colour'] = colors[i]
+    max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
+    lengths = max_df['distance_from_outlet'].tolist()
+    clusters = max_df['cluster_id'].tolist()
+    print lengths
+    print clusters
+    sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
+    sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
+    for i, c in enumerate(sorted_clusters):
+        print('ID = {}'.format(sorted_clusters[i]))
+        df.loc[df.cluster_id==sorted_clusters[i], 'colour'] = sorted_colors[i]
 
     set_link_color_palette(colors)
 
@@ -983,13 +990,13 @@ def PlotMedianProfiles():
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     plt.clf()
 
-def PlotSlopeArea():
+def PlotSlopeArea(stream_order=1):
     """
     Make a summary plot showing the S-A plot for each cluster.
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
     # find out some info
     clusters = df.cluster_id.unique()
@@ -1008,6 +1015,10 @@ def PlotSlopeArea():
 
         cluster_df = df[df.cluster_id == cl]
 
+        # calculate the channel steepness
+        slope, intercept, r, p, std = stats.linregress(cluster_df['drainage_area'], cluster_df['slope'])
+        print("Steepness index: {}".format(intercept))
+
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
@@ -1015,14 +1026,15 @@ def PlotSlopeArea():
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
         ax[i].set_ylim(0.0001, 1)
+        ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)))
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
     plt.ylabel('Gradient', labelpad=15)
-    plt.subplots_adjust(left=0.15, hspace=0.5)
+    plt.subplots_adjust(left=0.15, hspace=0.2)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_SA_median.png'), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
     plt.clf()
     plt.cla()
     plt.close()
@@ -1201,7 +1213,7 @@ if __name__ == '__main__':
     # # #
     # # #PlotMedianProfiles()
     MakeHillshadePlotClusters(args.stream_order)
-    # PlotSlopeArea()
+    PlotSlopeArea(args.stream_order)
     # PlotTrunkChannel()
     #PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
