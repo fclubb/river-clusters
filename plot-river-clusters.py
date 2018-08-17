@@ -1015,7 +1015,7 @@ def PlotSlopeArea(stream_order=1):
         ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=10)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        ax[i].set_ylim(0.0001, 1)
+        #ax[i].set_ylim(0.0001, 1)
         ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)), fontsize=16)
 
     # set axis labels
