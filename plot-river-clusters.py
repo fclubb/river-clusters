@@ -23,13 +23,14 @@ from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
 from LSDMapFigure.PlottingRaster import MapFigure
+from LSDPlottingTools import LSDMap_BasicPlotting as BP
 import sys
 from collections import defaultdict
 import os
 from matplotlib import ticker
 
 # Set up fonts for plots
-label_size = 10
+label_size = 12
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
@@ -793,28 +794,16 @@ def RemoveNonUniqueProfiles(df):
     profile). We check the first 5 upstream nodes of each profile and
     remove any which have a duplicate node within this.
     """
+    duplicate_sources = []
     # get a list of the sources
     sources = df['id'].unique()
-
-    duplicate_sources = []
-    # find the channel head of each source ID and check if this node is repeated
-    # anywhere else in the dataframe
-    for src in sources:
-        if not src in duplicate_sources:
-            this_df = df[df['id'] == src]
-            rest_df = df[df['id'] != src]
-        #     us_nodes = this_df['node'][-30:].tolist()
-        #     for j in sources:
-        #         # check the last 5 nodes of the rest of the dataframe
-        #         rest_us_nodes = rest_df[rest_df['id'] == j]['node'][-30:].tolist()
-        #         duplicates = filter(set(us_nodes).__contains__, rest_us_nodes)
-        #         if duplicates:
-        #             duplicate_sources.append(j)
-
-            ch_node = this_df['node'].iloc[-1]
-            mask = rest_df['node'].isin([ch_node]).any()
-            if mask:
-                duplicate_sources.append(src)
+    n = len(sources)
+    for i in range(n):
+        for j in range(i+1, n):
+            df1 = df[df.id == sources[i]].node.tolist()
+            df2 = df[df.id == sources[j]].node.tolist()
+            if not set(df1).isdisjoint(df2):
+                duplicate_sources.append(sources[j])
 
     df_new = df[~df['id'].isin(duplicate_sources)]
     return df_new
@@ -884,7 +873,7 @@ def PlotProfilesByCluster(stream_order=1):
 
     return cluster_df
 
-def MakeHillshadePlotClusters(stream_order=1):
+def MakeHillshadePlotClusters(stream_order=1, drape_lithology=False, shapefile_name='geol.shp', lith_field = 'lithology'):
     """
     Make a shaded relief plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
@@ -892,6 +881,8 @@ def MakeHillshadePlotClusters(stream_order=1):
     Args:
         drape_lithology (bool): true to add in the raster with the lithology information. At the
         moment only works for the model runs.
+        shapefile_name (str): the shapefile with the litho data
+        lith_field (str): the name of the field that holds the lithology information
 
     Author: FJC
     """
@@ -909,6 +900,7 @@ def MakeHillshadePlotClusters(stream_order=1):
 
     # create the map figure
     MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM")
+
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
@@ -1021,19 +1013,19 @@ def PlotSlopeArea(stream_order=1):
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
-        ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
+        ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=10)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
         ax[i].set_ylim(0.0001, 1)
-        ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)))
+        ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)), fontsize=16)
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)')
     plt.ylabel('Gradient', labelpad=15)
-    plt.subplots_adjust(left=0.15, hspace=0.2)
+    plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300, transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
@@ -1198,13 +1190,15 @@ if __name__ == '__main__':
         df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
         # remove profiles with short unique section
-        df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
+        #df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
         # calculate the slope
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
     # get the profiles for the chosen stream order
     new_df = GetProfilesByStreamOrder(df, args.step, args.slope_window, args.stream_order)
+    if args.stream_order > 1:
+        new_df = RemoveNonUniqueProfiles(new_df)
 
     # do the clustering
     ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
