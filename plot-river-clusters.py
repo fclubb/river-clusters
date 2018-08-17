@@ -750,13 +750,13 @@ def CalculateSlope(df, slope_window_size):
 
     return df
 
-def RemoveProfilesShorterThanThresholdLength(df, profile_len=100):
+def RemoveProfilesShorterThanThresholdLength(df, profile_len=5):
     """
     Remove any profiles that are shorter than a threshold length.
-    I can't believe I worked out how to do that in one line of code...!
+    (number of nodes)
     """
     # find the maximum distance for each id and remove any less than the profile length
-    df = df[df.groupby('id')['distance_from_outlet'].transform('max') >= profile_len]
+    df = df[df.groupby('id').count >= profile_len]
     return df
 
 def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
@@ -791,8 +791,7 @@ def RemoveNonUniqueProfiles(df):
     """
     From the regularly spaced distance dataframe, remove any profiles
     which are non-unique (e.g., they have the same nodes as another
-    profile). We check the first 5 upstream nodes of each profile and
-    remove any which have a duplicate node within this.
+    profile).
     """
     duplicate_sources = []
     # get a list of the sources
@@ -1149,7 +1148,7 @@ if __name__ == '__main__':
     parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
 
     # The options for clustering
-    parser.add_argument("-len", "--profile_len", type=int, help="The minimum length over which a profile has to be unique (i.e. does not share nodes with any other profile)", default=10)
+    parser.add_argument("-len", "--profile_len", type=int, help="The minimum length of a profile to keep it. Default = 5 nodes.", default=5)
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'ward'.", default='ward')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5. DEPRECATED - now we calculate the threshold statistically.", default=0.5)
@@ -1190,7 +1189,6 @@ if __name__ == '__main__':
         df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
         # remove profiles with short unique section
-        #df = RemoveProfilesWithShortUniqueSection(df, args.profile_len)
         # calculate the slope
         df = CalculateSlope(df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
@@ -1199,6 +1197,8 @@ if __name__ == '__main__':
     new_df = GetProfilesByStreamOrder(df, args.step, args.slope_window, args.stream_order)
     if args.stream_order > 1:
         new_df = RemoveNonUniqueProfiles(new_df)
+
+    new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
     # do the clustering
     ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
