@@ -86,6 +86,16 @@ def find_difference_between_arrays(x, y):
     #print diff
     return diff
 
+def AverageEuclidianDifference(x, y):
+    """
+    Find the average Euclidian difference between two arrays x and y:
+    d = sqrt(sum(x-y)^2)/n
+    Liao, 2005,  doi:10.1016/j.patcog.2005.01.025
+    """
+    n = len(x)
+    d = (np.sqrt(np.sum((x - y)*(x - y))))/n
+    return d
+
 def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
     """
     This function takes the dataframe of river profiles and creates an array
@@ -440,18 +450,19 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
             # tsi, tsj = tsi[l:], tsj[l:]
             #tsi, tsj = tsi[new_l:], tsj[new_l:]
             #cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            cc[k] = find_difference_between_arrays(tsi, tsj)
+            #cc[k] = find_difference_between_arrays(tsi, tsj)
+            cc[k] = AverageEuclidianDifference(tsi, tsj)
             k += 1
 
     #print np.isnan(cc)
     #print cc
     # distances
-    dd = np.arccos(cc)
+    #dd = np.arccos(cc)
     #print dd
     #print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
-    ln = linkage(dd, method=method)
+    ln = linkage(cc, method=method)
 
     # make a plot of the distance vs number of clusters. Use this to determine
     # the threshold
@@ -872,16 +883,13 @@ def PlotProfilesByCluster(stream_order=1):
 
     return cluster_df
 
-def MakeHillshadePlotClusters(stream_order=1, drape_lithology=False, shapefile_name='geol.shp', lith_field = 'lithology'):
+def MakeHillshadePlotClusters(stream_order=1):
     """
     Make a shaded relief plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
 
     Args:
-        drape_lithology (bool): true to add in the raster with the lithology information. At the
-        moment only works for the model runs.
-        shapefile_name (str): the shapefile with the litho data
-        lith_field (str): the name of the field that holds the lithology information
+        stream_order: the stream order of the profiles that you are analysing
 
     Author: FJC
     """
@@ -1012,7 +1020,7 @@ def PlotSlopeArea(stream_order=1):
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
-        ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=10)
+        ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
         #ax[i].set_ylim(0.0001, 1)
@@ -1131,6 +1139,24 @@ def PlotTrunkChannel():
 
     plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
     plt.clf()
+
+def PlotClusterDataByLithology(shapefile_name='geol.shp', lith_field='lithology', res=1):
+    """
+    Make a plot showing the data for clusters by lithology
+
+    Args:
+        shapefile_name (str): name of the shapefile with the lithology information
+        lith_field (str): field name from the shapefile
+        res (int): raster resolution
+
+    Author: FJC
+    """
+    from LSDPlottingTools import LSDMap_VectorTools as VT
+
+    # rasterise the lithology shapefile
+    lith_raster = VT.Rasterize_geologic_maps_pythonic(DataDirectory+shapefile_name,res,lith_field)
+
+    # now
 
 if __name__ == '__main__':
 
