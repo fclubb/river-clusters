@@ -23,8 +23,10 @@ distance = np.arange(0,length_of_profile,1)
 nr_of_profiles = 5
 start_gradient = 0.8
 k = np.random.uniform(low=0.1, high=0.2, size=(nr_of_profiles))
-t = np.random.uniform(low=-0.5, high=-0.3, size=(nr_of_profiles))
-noise_level = start_gradient/50
+t = np.random.uniform(low=-0.8, high=-0.2, size=(nr_of_profiles))
+kp_loc = np.random.randint(low=10, high=(length_of_profile-10), size=(nr_of_profiles))
+kp_loc2 = np.random.randint(low=10, high=(length_of_profile-10), size=(nr_of_profiles))
+noise_level = start_gradient/40
 
 fig, ax = plt.subplots(nrows=nr_of_profiles,ncols=1,sharex=True,sharey=True, figsize =(5,8))
 fig.add_subplot(111, frameon=False)
@@ -36,16 +38,19 @@ for i in range(nr_of_profiles):
     #elevation_perf = [start_elevation * np.exp(-t / exponential_decay_factor[i]) for t in distance] # exponential perfect decay
     slope_perf = [start_gradient * k[i] * d**(t[i]) for d in distance]
     noise = np.random.uniform(0, noise_level, size = len(slope_perf)) # add some noise
+    print(kp_loc[i])
+    noise[kp_loc[i]-5:kp_loc[i]+5] = noise[kp_loc[i]-5:kp_loc[i]+5] + 0.02
+    noise[kp_loc2[i]-5:kp_loc2[i]+5] = noise[kp_loc2[i]-5:kp_loc2[i]+5] + 0.02
     #elevation_noise = elevation_perf + noise
     gradient = slope_perf+noise
     ax[i].plot(distance, gradient, c=colors[i])
 
-plt.title('River profiles', fontsize=16)
+#plt.title('River profiles', fontsize=16)
 plt.xlabel('Distance along profile (m)',fontsize=16)
 plt.ylabel('Gradient',fontsize=16)
 
 #plt.show()
-plt.savefig('/home/clubb/Bitbucket/hrt_workshop/figures/random_river_profiles.png', dpi=300)
+plt.savefig('/home/clubb/Bitbucket/hrt_workshop/figures/random_river_profiles.png', dpi=300, transparent=True)
 plt.clf()
 
 #%% Pearson Correlation Analysis of matrix (Pearson product-moment correlation coefficients)

@@ -19,7 +19,7 @@ from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
 from scipy.ndimage.interpolation import shift
-from CorrCoef import Pearson
+#from CorrCoef import Pearson
 import math
 import LSDPlottingTools as LSDP
 from LSDMapFigure.PlottingRaster import MapFigure
@@ -135,8 +135,8 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
         this_df = df[df['id'] == source]
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         if not this_df.empty:
-            slopes = this_df['slope'].as_matrix()[::-1] #need to reverse these as the distances need to be sorted
-            distances = this_df['distance_from_outlet'].as_matrix()[::-1]
+            slopes = this_df['slope'].values[::-1] #need to reverse these as the distances need to be sorted
+            distances = this_df['distance_from_outlet'].values[::-1]
             if (distances.max() >= profile_len):
                 profiles.append((distances, slopes))
                 #thinned_df = thinned_df.append(this_df)
@@ -218,7 +218,7 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
     source_ids = df['id'].unique()
-    print source_ids
+    print (source_ids)
     rows_list = []
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
@@ -226,7 +226,7 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
         reg_dist = np.arange(step, int(this_df.distance_from_outlet.max())+step, step)
 
         if not this_df.empty:
-            df_array = this_df.as_matrix()[::-1]
+            df_array = this_df.values[::-1]
             slopes = df_array[:,-1]
             distances = df_array[:,5]
             reg_slope = []
@@ -287,7 +287,7 @@ def GetProfilesByStreamOrder(df,step=2,slope_window_size=25,stream_order=1):
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
     source_ids = so_df['id'].unique()
-    print source_ids
+    print (source_ids)
     rows_list = []
     for i, source in enumerate(source_ids):
         this_df = so_df[so_df['id'] == source]
@@ -298,8 +298,8 @@ def GetProfilesByStreamOrder(df,step=2,slope_window_size=25,stream_order=1):
         reg_dist = np.arange(step, int(np.max(distances)+step), step)
 
         if not this_df.empty:
-            df_array = this_df.as_matrix()
-            slopes = this_df['slope'].as_matrix()
+            df_array = this_df.values
+            slopes = this_df['slope'].values
             reg_slope = []
             for d in reg_dist:
                 # find the index of the nearest point in the distance array
@@ -377,7 +377,6 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print cl
 
     set_link_color_palette(colors)
 
@@ -423,7 +422,7 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        data.append(this_df['slope'].as_matrix())
+        data.append(this_df['slope'].values)
     #print data
 
     # correlation coefficients
@@ -471,7 +470,6 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print cl
 
     # assign the cluster id to the dataframe
     for i,id in enumerate(sources):
@@ -529,7 +527,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     sources = df['id'].unique()
     n = len(sources)
 
-    all_areas = df['drainage_area'].as_matrix()
+    all_areas = df['drainage_area'].values
     #sort the areas
     sorted_areas = np.sort(all_areas)
     print (len(sorted_areas))
@@ -545,9 +543,9 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
         reg_slopes = np.empty(len(reg_areas))
         reg_slopes[:] = np.nan
 
-        #df_array = this_df.as_matrix()[::-1]
-        slopes = this_df['slope'].as_matrix()
-        areas = this_df['drainage_area'].as_matrix()
+        #df_array = this_df.values[::-1]
+        slopes = this_df['slope'].values
+        areas = this_df['drainage_area'].values
         for idx, i in enumerate(areas):
             #print i
             idx_j = find_nearest_idx(reg_areas, i)
@@ -592,8 +590,6 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
             cc[k] = find_difference_between_arrays(new_tsi, new_tsj)
             k += 1
 
-    #print np.isnan(cc)
-    print cc
     # distances
     dd = np.arccos(cc)
     #print dd
@@ -613,7 +609,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print len(cl), n
+    print (len(cl), n)
 
     # assign the cluster id to the dataframe
     for i,id in enumerate(sources):
@@ -628,8 +624,8 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
     max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
     lengths = max_df['distance_from_outlet'].tolist()
     clusters = max_df['cluster_id'].tolist()
-    print lengths
-    print clusters
+    print (lengths)
+    print (clusters)
     sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
     sorted_colors = []
     for i, c in enumerate(sorted_clusters):
@@ -862,12 +858,12 @@ def PlotProfilesByCluster(stream_order=1):
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['reg_dist'].as_matrix(), src_df['slope'].as_matrix(), lw=1, color=this_colour)
+                ax.plot(src_df['reg_dist'].values, src_df['slope'].values, lw=1, color=this_colour)
                 # save the colour to the cluster dataframe for later plots
                 #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
             #counter +=1
         # else:
-        #     ax.plot(this_df['distance_from_outlet'].as_matrix(), this_df['elevation'].as_matrix(), lw=1, color=threshold_color)
+        #     ax.plot(this_df['distance_from_outlet'].values, this_df['elevation'].values, lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
             #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
@@ -934,7 +930,7 @@ def PlotMedianProfiles():
     clusters = df.cluster_id.unique()
     clusters.sort()
     sources = df.id.unique()
-    dist_array = df[df.id == sources[0]].reg_dist.as_matrix()
+    dist_array = df[df.id == sources[0]].reg_dist.values
 
     # set up a figure
     fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
@@ -1065,7 +1061,7 @@ def PlotUniqueStreamsWithLength(step=2, slope_window_size=25):
         reg_df, __ = ProfilesRegularDistance(thinned_df, profile_len = len, step=step, slope_window_size=slope_window_size)
         reg_df = RemoveNonUniqueProfiles(reg_df)
         n_sources = reg_df['id'].unique().size
-        print n_sources
+        print (n_sources)
         ax.scatter(len, n_sources, s = 25, c='w', edgecolors='k')
 
     ax.set_xlabel('Profile length (m)')
