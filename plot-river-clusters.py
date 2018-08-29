@@ -416,14 +416,11 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
     n = len(sources)
-    #print sources
-    #print n
     data = []
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
         data.append(this_df['slope'].values)
-    #print data
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
@@ -434,22 +431,9 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
             tsi = data[i]
             tsj = data[j]
             if len(tsi) > len(tsj):
-                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - testing just clustering the top of each profile
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
-                #tsj = tsj[len(tsj)-len(tsi):]
-            #print len(tsi), len(tsj)
-            # dts = tsi - tsj
-            # l = 0
-            # while dts[l] == 0:
-            #     l += 1
-            # # # try to just cluster over the top 25% of each of the profiles
-            # #new_l = int(0.25*l)+l
-            # tsi, tsj = tsi[l:], tsj[l:]
-            #tsi, tsj = tsi[new_l:], tsj[new_l:]
-            #cc[k] = np.corrcoef(tsi, tsj)[0, 1]
-            #cc[k] = find_difference_between_arrays(tsi, tsj)
             cc[k] = AverageEuclidianDifference(tsi, tsj)
             k += 1
 
@@ -470,10 +454,11 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
+    print([int(c) for c in cl])
 
     # assign the cluster id to the dataframe
-    for i,id in enumerate(sources):
-        df.loc[df.id==id, 'cluster_id'] = cl[i]
+    for i,src in enumerate(sources):
+        df.loc[df.id==src, 'cluster_id'] = cl[i]
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
@@ -483,12 +468,11 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
 
     # max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
     # lengths = max_df['distance_from_outlet'].tolist()
-    # clusters = max_df['cluster_id'].tolist()
     # print lengths
     # print clusters
-    # sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
+    sorted_clusters = sorted(clusters)
     # sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
-    for i, c in enumerate(clusters):
+    for i, c in enumerate(sorted_clusters):
         df.loc[df.cluster_id==c, 'colour'] = colors[i]
 
     set_link_color_palette(colors)
@@ -684,9 +668,9 @@ def PlotDistanceVsNClusters(ln):
     thr = dist[i]
     print ('The optimum distance threshold is '+str(thr))
     # now save the figure
-    ax.set_xlabel('Number of clusters')
-    ax.set_ylabel('Distance between clusters')
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=2))
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Distance between clusters')
+    #ax.xaxis.set_major_locator(ticker.MultipleLocator(base=2))
     plt.savefig(DataDirectory+fname_prefix+'_clusters_dist.png', dpi=300)
     plt.clf()
 
