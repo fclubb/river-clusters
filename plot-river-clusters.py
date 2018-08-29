@@ -719,7 +719,7 @@ def CalculateSlope(df, slope_window_size):
                 end_idx = len(pts_array)
             # find the rows above and below relating to the window size. We use whatever nodes
             # are available to not waste the data.
-            this_slice = pts_array[start_idx:end_idx]
+            this_slice = pts_array[int(start_idx):int(end_idx)]
             # now regress this slice
             x = this_slice[:,0]
             y = this_slice[:,1]
@@ -737,7 +737,7 @@ def CalculateSlope(df, slope_window_size):
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream.png', dpi=300)
     plt.clf()
 
-    print("Got the slope over a window radius of {} m").format(slope_window_size)
+    print("Got the slope over a window radius of {} m".format(slope_window_size))
 
     return df
 
@@ -1204,7 +1204,7 @@ if __name__ == '__main__':
     if args.stream_order > 1:
         new_df = RemoveNonUniqueProfiles(new_df)
 
-    new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    #new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
     # do the clustering
     ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
