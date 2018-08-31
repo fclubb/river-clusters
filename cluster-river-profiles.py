@@ -14,16 +14,13 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
 from scipy.ndimage.interpolation import shift
-#from CorrCoef import Pearson
 import math
-import LSDPlottingTools as LSDP
-from LSDMapFigure.PlottingRaster import MapFigure
-from LSDPlottingTools import LSDMap_BasicPlotting as BP
 import sys
 from collections import defaultdict
 import os
@@ -65,6 +62,24 @@ def find_nearest_idx(array,value):
     else:
         return idx
 
+def list_of_hex_colours(N, base_cmap):
+    """
+    Return a list of colors from a colourmap as hex codes
+
+        Arguments:
+            cmap: colormap instance, eg. cm.jet.
+            N: number of colors.
+
+        Author: FJC
+    """
+    cmap = cm.get_cmap(base_cmap, N)
+
+    hex_codes = []
+    for i in range(cmap.N):
+        rgb = cmap(i)[:3] # will return rgba, we take only first 3 so we get rgb
+        hex_codes.append(mcolors.rgb2hex(rgb))
+    return hex_codes
+
 def find_difference_between_arrays(x, y):
     """
     Function to calculate a difference between two np arrays with the same
@@ -95,6 +110,20 @@ def AverageEuclidianDifference(x, y):
     n = len(x)
     d = (np.sqrt(np.sum((x - y)*(x - y))))/n
     return d
+
+#def MinimiseLag(x, y, s=200):
+    """
+    Take in two arrays x and y, and do a shifting to minimise the average
+    euclidian distance between them
+    
+    Args:
+        x: first array
+        y: second array
+        s: maximum shift, default = 200 px
+    FJC
+    """
+
+
 
 def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
     """
@@ -462,7 +491,7 @@ def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
-    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
+    colors = list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
     threshold_color = '#377eb8'
     clusters = df['cluster_id'].unique()
 
@@ -601,7 +630,7 @@ def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
-    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')[:cl.max()]
+    colors = list_of_hex_colours(N_colors, 'Dark2')[:cl.max()]
     threshold_color = '#377eb8'
 
     # now find the order of the cluster ids and assign the colours accordingly
@@ -873,6 +902,9 @@ def MakeHillshadePlotClusters(stream_order=1):
 
     Author: FJC
     """
+    import LSDPlottingTools as LSDP
+    from LSDMapFigure.PlottingRaster import MapFigure
+
     df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
     cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
@@ -1077,30 +1109,30 @@ def PlotLongitudinalProfiles():
     plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
     plt.clf()
 
-def MakeShadedSlopeMap():
-    """
-    Make a nice shaded slope image
-    """
-    # set figure sizes based on format
-    fig_width_inches = 4.92126
+# def MakeShadedSlopeMap():
+#     """
+#     Make a nice shaded slope image
+#     """
+#     # set figure sizes based on format
+#     fig_width_inches = 4.92126
 
-    # some raster names
-    raster_ext = '.bil'
-    BackgroundRasterName = fname_prefix+raster_ext
-    HillshadeName = fname_prefix+'_hs'+raster_ext
-    SlopeName = fname_prefix+'_slope'+raster_ext
+#     # some raster names
+#     raster_ext = '.bil'
+#     BackgroundRasterName = fname_prefix+raster_ext
+#     HillshadeName = fname_prefix+'_hs'+raster_ext
+#     SlopeName = fname_prefix+'_slope'+raster_ext
 
-    # create the map figure
-    MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM",colourbar_location='right')
-    MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
+#     # create the map figure
+#     MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM",colourbar_location='right')
+#     MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
 
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+#     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 def PlotTrunkChannel():
     """
     Make a simple plot of the longest channel. This is mostly to use for the model runs.
     """
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv')
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
     # set up a figure
     fig = plt.figure(1, facecolor='white')
@@ -1204,7 +1236,7 @@ if __name__ == '__main__':
     if args.stream_order > 1:
         new_df = RemoveNonUniqueProfiles(new_df)
 
-    #new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
     # do the clustering
     ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
@@ -1213,7 +1245,7 @@ if __name__ == '__main__':
     # # #PlotMedianProfiles()
     MakeHillshadePlotClusters(args.stream_order)
     PlotSlopeArea(args.stream_order)
-    # PlotTrunkChannel()
+    PlotTrunkChannel()
     #PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
 
