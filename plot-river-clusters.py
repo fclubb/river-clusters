@@ -1007,8 +1007,8 @@ def PlotSlopeArea(stream_order=1):
         ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)), fontsize=16)
 
     # set axis labels
-    plt.xlabel('Drainage area (m$^2$)')
-    plt.ylabel('Gradient', labelpad=15)
+    plt.xlabel('Drainage area (m$^2$)', fontsize=14)
+    plt.ylabel('Gradient', labelpad=15, fontsize=14)
     plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
