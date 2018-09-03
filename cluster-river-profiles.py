@@ -25,6 +25,7 @@ import sys
 from collections import defaultdict
 import os
 from matplotlib import ticker
+import raster_plotting
 
 # Set up fonts for plots
 label_size = 12
@@ -115,7 +116,7 @@ def AverageEuclidianDifference(x, y):
     """
     Take in two arrays x and y, and do a shifting to minimise the average
     euclidian distance between them
-    
+
     Args:
         x: first array
         y: second array
@@ -892,47 +893,6 @@ def PlotProfilesByCluster(stream_order=1):
 
     return cluster_df
 
-def MakeHillshadePlotClusters(stream_order=1):
-    """
-    Make a shaded relief plot of the raster with the channels coloured by the cluster
-    value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
-
-    Args:
-        stream_order: the stream order of the profiles that you are analysing
-
-    Author: FJC
-    """
-    import LSDPlottingTools as LSDP
-    from LSDMapFigure.PlottingRaster import MapFigure
-
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
-
-
-    # set figure sizes based on format
-    fig_width_inches = 4.92126
-
-    # some raster names
-    raster_ext = '.bil'
-    BackgroundRasterName = fname_prefix+raster_ext
-    HillshadeName = fname_prefix+'_hs'+raster_ext
-
-    # create the map figure
-    MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM")
-
-    clusters = cluster_df.cluster_id.unique()
-    for cl in clusters:
-        # plot the whole channel network in black
-        ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.9',manual_size=2, zorder=1, alpha=0.5)
-        # plot the clustered profiles in the correct colour
-        this_df = cluster_df[cluster_df.cluster_id == cl]
-        this_colour = str(this_df.colour.unique()[0])
-        ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=3)
-
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
-
 def PlotMedianProfiles():
     """
     Make a summary plot showing the median profile for each cluster, both in
@@ -1193,6 +1153,10 @@ if __name__ == '__main__':
     parser.add_argument("-step", "--step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
     parser.add_argument("-so", "--stream_order", type=int, help="The stream order that you wish to cluster over. Default is 1.", default=1)
 
+    # Options for raster plotting
+    parser.add_argument("-shp", "--shp", type=str, help="Pass a shapefile with the geology for plotting. If nothing is passed then we don't make this plot.", default=None)
+    parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
+
     args = parser.parse_args()
 
     if not args.fname_prefix:
@@ -1243,7 +1207,9 @@ if __name__ == '__main__':
     PlotProfilesByCluster(args.stream_order)
     # # #
     # # #PlotMedianProfiles()
-    MakeHillshadePlotClusters(args.stream_order)
+    raster_plotting.MakeHillshadePlotClusters(DataDirectory, args.fname_prefix, args.stream_order)
+    if args.shp:
+        raster_plotting.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
     PlotSlopeArea(args.stream_order)
     PlotTrunkChannel()
     #PlotLongitudinalProfiles()

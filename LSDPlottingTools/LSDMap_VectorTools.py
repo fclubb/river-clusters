@@ -358,8 +358,9 @@ def Rasterize_geologic_maps_pythonic(shapefile_name, raster_resolution = 400, ge
 
 	# The raster file to be created and receive the rasterized shapefile
 	outrastername = shapefileshortname + '.tif'
-	outraster = shapefilefilepath+os.sep+ outrastername
-	outcsv = shapefilefilepath+os.sep+shapefileshortname+'_lithokey.csv'
+	print("The new raster is: "+outrastername)
+	outraster = shapefilefilepath+ outrastername
+	outcsv = shapefilefilepath+shapefileshortname+'_lithokey.csv'
 	print("Full name of out raster is: "+outraster)
 
 	# Create the destination data source
@@ -368,7 +369,7 @@ def Rasterize_geologic_maps_pythonic(shapefile_name, raster_resolution = 400, ge
 
 	xRes = int((xMax - xMin) / inGridSize)
 	yRes = int((yMax - yMin) / inGridSize)
-	rasterDS =  gdal.GetDriverByName('GTiff'.encode('utf-8')).Create(outraster, xRes, yRes, 1,  gdal.GDT_Byte)
+	rasterDS =  gdal.GetDriverByName(str('GTiff')).Create(outraster, xRes, yRes, 1,  gdal.GDT_Byte)
 
 	# Define spatial reference
 	NoDataVal = -9999
@@ -383,10 +384,12 @@ def Rasterize_geologic_maps_pythonic(shapefile_name, raster_resolution = 400, ge
 
 	# Make a key for the bedrock
 	geol_dict = dict()
-	geol_field = geol_field.encode('utf-8')
+	geol_field = str(geol_field)
 	for feature in daLayer:
+		print(feature)
 		ID = feature.GetField(geol_field)
-		GEOL = feature.GetField("GEOL_CODE".encode('utf-8'))
+		print(ID)
+		GEOL = feature.GetField('GEOL_CODE')
 
 		if ID not in geol_dict:
 			print("I found a new rock type, ID: "+ str(ID)+ " and rock type: " + str(GEOL))
@@ -395,13 +398,14 @@ def Rasterize_geologic_maps_pythonic(shapefile_name, raster_resolution = 400, ge
 	print("The rocks are: ")
 	print(geol_dict)
 
-	with open(outcsv, 'wb') as f:
+	with open(outcsv, 'w') as f:
 		f.write('ID,rocktype\n')
 		for key in geol_dict:
 			f.write(str(key)+','+ str(geol_dict[key])+'\n')
 
 	print("Done rasterizing!")
 	return outraster
+
 
 def Correct_Raterized_GLIM_map(tifname):
 	# And now for a hack that converts to
@@ -439,7 +443,7 @@ def geologic_maps_modify_shapefile(shapefile_name, geol_field = "xx"):
 	shapefileshortname = LSDPT.GetFilePrefix(shapefile_name)
 
 	# get the new shapefile name
-	new_shapefile_name = shapefilefilepath+os.sep+shapefileshortname+"_new.shp"
+	new_shapefile_name = shapefilefilepath+shapefileshortname+"_new.shp"
 
 	# copy the shapefile into the new shapefile--we don't wwant to mess up the original data
 	print("The New Shapefile name is: "+new_shapefile_name)
@@ -450,7 +454,7 @@ def geologic_maps_modify_shapefile(shapefile_name, geol_field = "xx"):
 	daLayer = dataSource.GetLayer(0)
 
 	# add a new field
-	new_field = ogr.FieldDefn("GEOL_CODE".encode('utf-8'), ogr.OFTInteger)
+	new_field = ogr.FieldDefn(str("GEOL_CODE"), ogr.OFTInteger)
 	daLayer.CreateField(new_field)
 
 	# lets see what the layers are
@@ -463,7 +467,7 @@ def geologic_maps_modify_shapefile(shapefile_name, geol_field = "xx"):
 	# Make a key for the bedrock
 	geol_dict = dict()
 	geol_iterator = 0
-	geol_field = geol_field.encode('utf-8')
+	#geol_field = geol_field.encode('utf-8')
 	for feature in daLayer:
 		GEOL = feature.GetField(geol_field)
 
@@ -475,7 +479,7 @@ def geologic_maps_modify_shapefile(shapefile_name, geol_field = "xx"):
 		# now get the geol code
 		this_geol_code = geol_dict[GEOL]
 		# set the feature
-		feature.SetField("GEOL_CODE".encode('utf-8'), this_geol_code)
+		feature.SetField("GEOL_CODE", this_geol_code)
 
 		# need to update the layer
 		daLayer.SetFeature(feature)
@@ -519,7 +523,7 @@ def Copy_Shapefile(shapefile_name,new_shapefile_name):
 
 	# get the driver and create a new data source
 	cliffbaggu = "ESRI shapefile"
-	cliffbaggu = cliffbaggu.encode('utf-8')
+	cliffbaggu = str(cliffbaggu)
 	driver = ogr.GetDriverByName(cliffbaggu)
 	#src.Destroy()
 
@@ -528,7 +532,7 @@ def Copy_Shapefile(shapefile_name,new_shapefile_name):
 	out_ds = driver.CreateDataSource(new_shapefile_name)
 	# create the output layer
 	#out_lyr = out_ds.CreateLayer("yo",srs = daLayer.GetSpatialRef(),geom_type=ogr.wkbPolygon)
-	out_lyr = out_ds.CreateLayer("yo".encode('utf-8'),srs = daLayer.GetSpatialRef(),geom_type=geom_type)
+	out_lyr = out_ds.CreateLayer(str("yo"),srs = daLayer.GetSpatialRef(),geom_type=geom_type)
 
 	# Add input Layer Fields to the output Layer if it is the one we want
 	for i in range(0, layerDefinition.GetFieldCount()):
