@@ -288,7 +288,7 @@ def PlotTrunkChannel(DataDirectory, fname_prefix):
     plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
     plt.clf()
 
-def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix):
+def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
     """
     Make a plot of the elevation and slope against the distance from the channel head
     For the paper
@@ -302,13 +302,34 @@ def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix):
 
     trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
 
+    # fit a linear regression
     this_df = df[df['id'] == trunk_src]
-    ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
+    this_dist = this_df['distance_from_outlet'][::-1][12:37]
+    #print(this_dist)
+    this_elev = this_df['elevation'][12:37]
+    slope, intercept, r, p, std = stats.linregress(this_dist, this_elev)
+    #print(slope, intercept)
+    new_elev = slope* this_dist + intercept
 
-    ax.set_xlabel('Distance from outlet (m)')
+    reg_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(stream_order))
+    print(reg_df['distance_from_outlet'][::-1][1:20])
+    print(reg_df['reg_dist'][1:20])
+
+    #plotting
+    ax.scatter(this_df['distance_from_outlet'][::-1][:50], this_df['elevation'][:50], edgecolors='k', facecolor='white', s=30, label=None)
+    ax.scatter(this_df['distance_from_outlet'][::-1][12:37], this_df['elevation'][12:37], edgecolors='k', facecolor='0.5', s=30, label=None)
+    ax.scatter(this_df['distance_from_outlet'][::-1][24:25], this_df['elevation'][24:25], edgecolors='k', facecolor='red', s=40, label='Node of interest')
+    #ax.plot(this_dist-1, new_elev-0.1, c='k', ls='--')
+    ax.text(30, 8.2, 'Linear fit, $S = {}$'.format(np.round(abs(slope),4)),fontsize=10)
+    ax.legend(loc='upper right', fontsize=10)
+    ax.set_xlabel('Distance downstream (m)')
     ax.set_ylabel('Elevation (m)')
+    plt.title('Slope window size: $W_s = 25$',fontsize=12)
+    plt.annotate(s='', xy=(13,9), xytext=(44,6.8), arrowprops=dict(arrowstyle='<->'))
+    #plt.arrow(13,9,30,-2.1,length_includes_head=True, head_width=0.2,shape='right')
+    #plt.arrow(13,9,30,-2.1,length_includes_head=True, head_width=0.2,shape='right',head_starts_at_zero=False)
     #ax.set_xlim(0,2500)
     #ax.set_ylim(0,35)
 
-    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_trunk_elev_dist.png', dpi=300)
     plt.clf()
