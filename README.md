@@ -2,7 +2,7 @@
 
 This repository contains code for clustering rivers in different catchments based on their long profiles.
 
-## Dependencies
+## Download and install
 
 The best way to run the code is to use `conda`. Install Anaconda or Miniconda with Python 3.6: https://conda.io/miniconda.html
 
@@ -20,6 +20,12 @@ and activate the new environment by:
 ```
 source activate river-clusters
 ```
+Deactivate the environment at any time with
+```
+source deactivate river-clusters
+```
+## Running the code
+
 You can then run the code from inside this environment using:
 ```
 python cluster-river-profiles.py -h
