@@ -18,6 +18,7 @@ DataDirectory ="/raid/fclubb/river_clusters/model_runs/runs_for_analysis/sensiti
 print DataDirectory
 
 subdirs = [x[0] for x in os.walk(DataDirectory)]
+subdirs = subdirs[1:]
 
 for dir in subdirs:
     sw = dir.split("/")[-1]

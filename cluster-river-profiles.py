@@ -14,22 +14,21 @@ import numpy as np
 import pandas as pd
 from matplotlib import rcParams
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap
 from glob import glob
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster, set_link_color_palette
 from scipy import stats
 from scipy.ndimage.interpolation import shift
-from CorrCoef import Pearson
 import math
-import LSDPlottingTools as LSDP
-from LSDMapFigure.PlottingRaster import MapFigure
 import sys
 from collections import defaultdict
 import os
 from matplotlib import ticker
+import raster_plotting
 
 # Set up fonts for plots
-label_size = 10
+label_size = 12
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
@@ -63,6 +62,69 @@ def find_nearest_idx(array,value):
         return idx-1
     else:
         return idx
+
+def list_of_hex_colours(N, base_cmap):
+    """
+    Return a list of colors from a colourmap as hex codes
+
+        Arguments:
+            cmap: colormap instance, eg. cm.jet.
+            N: number of colors.
+
+        Author: FJC
+    """
+    cmap = cm.get_cmap(base_cmap, N)
+
+    hex_codes = []
+    for i in range(cmap.N):
+        rgb = cmap(i)[:3] # will return rgba, we take only first 3 so we get rgb
+        hex_codes.append(mcolors.rgb2hex(rgb))
+    return hex_codes
+
+def find_difference_between_arrays(x, y):
+    """
+    Function to calculate a difference between two np arrays with the same
+    dimensions. If values are all positive, scales from 0 to 1: 1 = no difference, 0 = bad.
+    1 - (||(X-Y)/(X+Y)|| / sqrt(n))
+    """
+    n = len(x)
+    #print n
+    #print x, y
+    num = x - y
+    #print num
+    den = x + y
+    div = np.divide(num,den)
+    norm = np.linalg.norm(div)
+    #print norm
+    #print np.sqrt(n)
+    diff = 1-(norm/np.sqrt(n))
+    #diff = 1-norm
+    #print diff
+    return diff
+
+def AverageEuclidianDifference(x, y):
+    """
+    Find the average Euclidian difference between two arrays x and y:
+    d = sqrt(sum(x-y)^2)/n
+    Liao, 2005,  doi:10.1016/j.patcog.2005.01.025
+    """
+    n = len(x)
+    d = (np.sqrt(np.sum((x - y)*(x - y))))/n
+    return d
+
+#def MinimiseLag(x, y, s=200):
+    """
+    Take in two arrays x and y, and do a shifting to minimise the average
+    euclidian distance between them
+
+    Args:
+        x: first array
+        y: second array
+        s: maximum shift, default = 200 px
+    FJC
+    """
+
+
 
 def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25):
     """
@@ -103,8 +165,8 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
         this_df = df[df['id'] == source]
         this_df = this_df[np.isnan(this_df['slope']) == False]  # remove nans
         if not this_df.empty:
-            slopes = this_df['slope'].as_matrix()[::-1] #need to reverse these as the distances need to be sorted
-            distances = this_df['distance_from_outlet'].as_matrix()[::-1]
+            slopes = this_df['slope'].values[::-1] #need to reverse these as the distances need to be sorted
+            distances = this_df['distance_from_outlet'].values[::-1]
             if (distances.max() >= profile_len):
                 profiles.append((distances, slopes))
                 #thinned_df = thinned_df.append(this_df)
@@ -142,7 +204,7 @@ def ProfilesRegularDistance(df, profile_len = 1000, step=2, slope_window_size=25
         # ax.plot(reg_dist[::-1], reg_slope, lw=1)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv',index=False)
     #
     # # now save the figure
     # ax.set_xlabel('Distance from source (m)')
@@ -186,7 +248,7 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
     source_ids = df['id'].unique()
-    print source_ids
+    print (source_ids)
     rows_list = []
     for i, source in enumerate(source_ids):
         this_df = df[df['id'] == source]
@@ -194,7 +256,7 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
         reg_dist = np.arange(step, int(this_df.distance_from_outlet.max())+step, step)
 
         if not this_df.empty:
-            df_array = this_df.as_matrix()[::-1]
+            df_array = this_df.values[::-1]
             slopes = df_array[:,-1]
             distances = df_array[:,5]
             reg_slope = []
@@ -221,12 +283,79 @@ def ProfilesRegDistVaryingLength(df, profile_len=4,step=2, slope_window_size=25)
     thinned_df = RemoveProfilesWithShortUniqueSection(thinned_df, profile_len)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv', index=False)
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Gradient')
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.png', dpi=300)
+    plt.clf()
+
+    return thinned_df
+
+def GetProfilesByStreamOrder(df,step=2,slope_window_size=25,stream_order=1):
+    """
+    Take the dataframe and return only the profiles of a certain stream order,
+    regularly sampled.
+    """
+    print("Assigning the profiles a common distance step of {} m".format(step))
+    # find the slope radius. We don't calculate slope for the first or last few nodes, which
+    # are below the min required window size. Therefore reg dist needs to be smaller
+    slope_radius = ((slope_window_size-1)/2)
+
+    # make a plot of the gradient vs. distance from source aligned to the outlet with
+    # the resampled distance frame
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # only keep the nodes belonging to the corresponding stream order
+    so_df = df[df['stream_order'] == stream_order]
+    #print so_df
+
+    # loop through the dataframe and store the data for each profile as an array of
+    # slopes and distances
+    source_ids = so_df['id'].unique()
+    print (source_ids)
+    rows_list = []
+    for i, source in enumerate(source_ids):
+        this_df = so_df[so_df['id'] == source]
+        # get the distances from the channel head
+        distances = [this_df.distance_from_outlet.max()-x for x in this_df.distance_from_outlet]
+    #    print distances
+        # create new array of regularly spaced differences
+        reg_dist = np.arange(step, int(np.max(distances)+step), step)
+
+        if not this_df.empty:
+            df_array = this_df.values
+            slopes = this_df['slope'].values
+            reg_slope = []
+            for d in reg_dist:
+                # find the index of the nearest point in the distance array
+                idx = find_nearest_idx(distances, d)
+                reg_slope.append(slopes[idx])
+                # find the row that corresponds to this distance
+                this_row = df_array[idx,:]
+                this_row = np.append(this_row,d)
+
+                rows_list.append(this_row)
+
+            # plot this profile
+            ax.plot(reg_dist, reg_slope, lw=1)
+
+    # change the array back to a dataframe
+    cols = list(df.columns.values)
+    cols.append('reg_dist')
+    thinned_df = pd.DataFrame(data=rows_list,columns=cols)
+
+    # write the thinned_df to output in case we want to reload
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(stream_order), index=False)
+
+    # now save the figure
+    ax.set_xlabel('Distance from source (m)')
+    ax.set_ylabel('Gradient')
+    plt.savefig(DataDirectory+fname_prefix+'_profiles_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
     return thinned_df
@@ -278,16 +407,14 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print cl
 
     set_link_color_palette(colors)
 
     source_ids = df['id'].unique()
 
     plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr, above_threshold_color=threshold_color,no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
@@ -298,7 +425,7 @@ def ClusterProfiles(df, profile_len=100, step=2, min_corr=0.5, method='complete'
 
     return df
 
-def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, method='ward'):
+def ClusterProfilesVaryingLength(df, method='ward',stream_order=1):
     """
     Cluster the profiles based on gradient and distance from source. This works for profiles of varying length.
     Aggolmerative clustering, see here for more info:
@@ -306,7 +433,6 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     Args:
         df: pandas dataframe from the river profile csv.
-        min_corr (float): minimum correlation threshold for clustering
         method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
         'weighted', 'centroid', 'median', or 'ward'. Default is 'ward'.
 
@@ -315,16 +441,16 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
     print ("Now I'm going to do some hierarchical clustering...")
     np.set_printoptions(threshold='nan')
 
+    #sort the dataframe based on max distance from outlet for each source id.
+
     # get the data from the dataframe into the right format for clustering
     sources = df['id'].unique()
     n = len(sources)
-    print sources
-    print n
     data = []
 
     for i, src in enumerate(sources):
         this_df = df[df['id'] == src]
-        data.append(this_df['slope'].as_matrix())
+        data.append(this_df['slope'].values)
 
     # correlation coefficients
     cc = np.zeros(int(n * (n - 1) / 2))
@@ -335,28 +461,153 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
             tsi = data[i]
             tsj = data[j]
             if len(tsi) > len(tsj):
-                #tsi = tsi[len(tsi)-len(tsj):]  # Fiona - testing just clustering the top of each profile
                 tsi = tsi[:len(tsj)]
             else:
                 tsj = tsj[:len(tsi)]
-                #tsj = tsj[len(tsj)-len(tsi):]
-            dts = tsi - tsj
-            l = 0
-            while dts[l] == 0:
-                l += 1
-            # # try to just cluster over the top 25% of each of the profiles
-            #new_l = int(0.25*l)+l
-            tsi, tsj = tsi[l:], tsj[l:]
-            #tsi, tsj = tsi[new_l:], tsj[new_l:]
-            cc[k] = np.corrcoef(tsi, tsj)[0, 1]
+            cc[k] = AverageEuclidianDifference(tsi, tsj)
             k += 1
 
     #print np.isnan(cc)
     #print cc
     # distances
+    #dd = np.arccos(cc)
+    #print dd
+    #print len(dd)
+    # do agglomerative clustering by stepwise pair matching
+    # based on angle between scalar products of time series
+    ln = linkage(cc, method=method)
+
+    # make a plot of the distance vs number of clusters. Use this to determine
+    # the threshold
+    thr = PlotDistanceVsNClusters(ln)
+
+    # compute cluster indices
+    cl = fcluster(ln, thr, criterion = 'distance')
+    print("I've finished! I found {} clusters for you :)".format(cl.max()))
+    print([int(c) for c in cl])
+
+    # assign the cluster id to the dataframe
+    for i,src in enumerate(sources):
+        df.loc[df.id==src, 'cluster_id'] = cl[i]
+
+    # set colour palette: 8 class Set 1 from http://colorbrewer2.org
+    N_colors = 8
+    colors = list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
+    threshold_color = '#377eb8'
+    clusters = df['cluster_id'].unique()
+
+    # max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
+    # lengths = max_df['distance_from_outlet'].tolist()
+    # print lengths
+    # print clusters
+    sorted_clusters = sorted(clusters)
+    # sorted_colors = [x for _,x in sorted(zip(lengths,colors))]
+    for i, c in enumerate(sorted_clusters):
+        df.loc[df.cluster_id==c, 'colour'] = colors[i]
+
+    set_link_color_palette(colors)
+
+    source_ids = df['id'].unique()
+
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.ylabel('distance')
+    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color,no_labels=True)
+
+    plt.axhline(y = thr, color = 'r', ls = '--')
+    plt.savefig(DataDirectory+fname_prefix+"_dendrogram_SO{}.png".format(stream_order), dpi=300)
+    plt.clf()
+
+    df.to_csv(DataDirectory+args.fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order), index=False)
+
+    return df
+
+def ClusterProfilesDrainageArea(df, profile_len=100, step=2, method='ward'):
+    """
+    Cluster the profiles based on gradient and drainage area.
+    Aggolmerative clustering, see here for more info:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html#scipy.cluster.hierarchy.linkage
+
+    Args:
+        df: pandas dataframe from the river profile csv.
+        method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
+        'weighted', 'centroid', 'median', or 'ward'. Default is 'ward'.
+
+    Author: FJC, AR
+    """
+    print ("Now I'm going to do some hierarchical clustering by drainage area...")
+    #np.set_printoptions(threshold='nan')
+
+    # get the data from the dataframe into the right format for clustering
+    sources = df['id'].unique()
+    n = len(sources)
+
+    all_areas = df['drainage_area'].values
+    #sort the areas
+    sorted_areas = np.sort(all_areas)
+    print (len(sorted_areas))
+    reg_areas = np.unique(sorted_areas[0:-1:30])
+    print (len(reg_areas))
+
+    # create matrix for the data
+    data = np.empty((len(sources), len(reg_areas)))
+
+    # now for each profile, find the nearest point on the trunk areas array and assign the slope value to this.
+    for x, src in enumerate(sources):
+        this_df = df[df['id'] == src]
+        reg_slopes = np.empty(len(reg_areas))
+        reg_slopes[:] = np.nan
+
+        #df_array = this_df.values[::-1]
+        slopes = this_df['slope'].values
+        areas = this_df['drainage_area'].values
+        for idx, i in enumerate(areas):
+            #print i
+            idx_j = find_nearest_idx(reg_areas, i)
+            #print ('THIS AREA: ', trunk_areas[idx_j])
+            reg_slopes[idx_j] = slopes[idx]
+        data[x] = reg_slopes
+
+    # correlation coefficients
+    cc = np.zeros(int(n * (n - 1) / 2))
+
+    k = 0
+    for i in range(n):
+        for j in range(i+1, n):
+            tsi = data[i]
+            tsj = data[j]
+            new_tsi = []
+            new_tsj = []
+            # print ("LEN OLD SERIES 1:", np.count_nonzero(~np.isnan(tsi)))
+            # print ("LEN OLD SERIES 2:", np.count_nonzero(~np.isnan(tsj)))
+            # remove any areas where there isn't data in both time series
+            for x in range(len(tsi)):
+                if not (np.isnan(tsi[x])) and not (np.isnan(tsj[x])):
+                    new_tsi.append(tsi[x])
+                    new_tsj.append(tsj[x])
+            # print ("LEN AFTER REMOVING NANS", len(new_tsi))
+            #        print "Not a nan"
+            # remove parts of the time series which are identical
+            new_tsi = np.array(new_tsi)
+            new_tsj = np.array(new_tsj)
+            dts = new_tsi - new_tsj
+            l = 0
+            for x in range(len(dts)):
+                if dts[x] == 0:
+                    l += 1
+            new_tsi, new_tsj = new_tsi[:l], new_tsj[:l]
+            #print ("LEN OF UNIQUE SECTION: ", len(new_tsi))
+            # take the log of them to test the correlation effect
+            log_tsi = np.log(new_tsi)
+            log_tsj = np.log(new_tsj)
+            #cc[k] = np.corrcoef(new_tsi, new_tsj)[0, 1]
+            #cc[k] = np.corrcoef(log_tsi, log_tsj)[0, 1]
+            cc[k] = find_difference_between_arrays(new_tsi, new_tsj)
+            k += 1
+
+    # distances
     dd = np.arccos(cc)
     #print dd
-    print len(dd)
+    #print len(dd)
     # do agglomerative clustering by stepwise pair matching
     # based on angle between scalar products of time series
     ln = linkage(dd, method=method)
@@ -367,29 +618,46 @@ def ClusterProfilesVaryingLength(df, profile_len=100, step=2, min_corr=0.5, meth
 
     # define threshold for cluster determination
     #thr = np.arccos(min_corr)
-    #thr = 1.8
+    #thr = 1.2
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
     print("I've finished! I found {} clusters for you :)".format(cl.max()))
-    print cl
+    print (len(cl), n)
 
-    set_link_color_palette(colors)
+    # assign the cluster id to the dataframe
+    for i,id in enumerate(sources):
+        df.loc[df.id==id, 'cluster_id'] = cl[i]
 
-    source_ids = df['id'].unique()
+    # set colour palette: 8 class Set 1 from http://colorbrewer2.org
+    N_colors = 8
+    colors = list_of_hex_colours(N_colors, 'Dark2')[:cl.max()]
+    threshold_color = '#377eb8'
+
+    # now find the order of the cluster ids and assign the colours accordingly
+    max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
+    lengths = max_df['distance_from_outlet'].tolist()
+    clusters = max_df['cluster_id'].tolist()
+    print (lengths)
+    print (clusters)
+    sorted_clusters = [x for _,x in sorted(zip(lengths,clusters))]
+    sorted_colors = []
+    for i, c in enumerate(sorted_clusters):
+        sorted_colors.append(colors[i])
+        df.loc[df.cluster_id==c, 'colour'] = colors[i]
+
+    set_link_color_palette(sorted_colors)
 
     plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('sample index')
+    #plt.xlabel('sample index')
     plt.ylabel('distance')
-    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color)
+    R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color, no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
     plt.savefig(DataDirectory+fname_prefix+"_upstream_dendrogram.png", dpi=300)
     plt.clf()
 
-    for i,id in enumerate(source_ids):
-        df.loc[df.id==id, 'cluster_id'] = cl[i]
-
+    df.to_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv', index=False)
     return df
 
 def PlotDistanceVsNClusters(ln):
@@ -408,7 +676,7 @@ def PlotDistanceVsNClusters(ln):
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
     ax = fig.add_subplot(gs[5:100,10:95])
 
-    print ln
+    #print ln
     # each iteration merges one cluster. so we start with n_clusters = n samples,
     # and then it reduces by one each time.
     clusters = []
@@ -430,9 +698,9 @@ def PlotDistanceVsNClusters(ln):
     thr = dist[i]
     print ('The optimum distance threshold is '+str(thr))
     # now save the figure
-    ax.set_xlabel('Number of clusters')
-    ax.set_ylabel('Distance between clusters')
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=2))
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Distance between clusters')
+    #ax.xaxis.set_major_locator(ticker.MultipleLocator(base=2))
     plt.savefig(DataDirectory+fname_prefix+'_clusters_dist.png', dpi=300)
     plt.clf()
 
@@ -481,7 +749,7 @@ def CalculateSlope(df, slope_window_size):
                 end_idx = len(pts_array)
             # find the rows above and below relating to the window size. We use whatever nodes
             # are available to not waste the data.
-            this_slice = pts_array[start_idx:end_idx]
+            this_slice = pts_array[int(start_idx):int(end_idx)]
             # now regress this slice
             x = this_slice[:,0]
             y = this_slice[:,1]
@@ -499,17 +767,17 @@ def CalculateSlope(df, slope_window_size):
     plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream.png', dpi=300)
     plt.clf()
 
-    print("Got the slope over a window radius of {} m").format(slope_window_size)
+    print("Got the slope over a window radius of {} m".format(slope_window_size))
 
     return df
 
-def RemoveProfilesShorterThanThresholdLength(df, profile_len=100):
+def RemoveProfilesShorterThanThresholdLength(df, profile_len=5):
     """
     Remove any profiles that are shorter than a threshold length.
-    I can't believe I worked out how to do that in one line of code...!
+    (number of nodes)
     """
     # find the maximum distance for each id and remove any less than the profile length
-    df = df[df.groupby('id')['distance_from_outlet'].transform('max') >= profile_len]
+    df = df.loc[df.groupby('id').filter(lambda x: len(x) >= profile_len).index]
     return df
 
 def RemoveProfilesWithShortUniqueSection(df, threshold_len=4):
@@ -544,38 +812,25 @@ def RemoveNonUniqueProfiles(df):
     """
     From the regularly spaced distance dataframe, remove any profiles
     which are non-unique (e.g., they have the same nodes as another
-    profile). We check the first 5 upstream nodes of each profile and
-    remove any which have a duplicate node within this.
+    profile).
     """
+    duplicate_sources = []
     # get a list of the sources
     sources = df['id'].unique()
-
-    duplicate_sources = []
-    # find the channel head of each source ID and check if this node is repeated
-    # anywhere else in the dataframe
-    for src in sources:
-        if not src in duplicate_sources:
-            this_df = df[df['id'] == src]
-            rest_df = df[df['id'] != src]
-        #     us_nodes = this_df['node'][-30:].tolist()
-        #     for j in sources:
-        #         # check the last 5 nodes of the rest of the dataframe
-        #         rest_us_nodes = rest_df[rest_df['id'] == j]['node'][-30:].tolist()
-        #         duplicates = filter(set(us_nodes).__contains__, rest_us_nodes)
-        #         if duplicates:
-        #             duplicate_sources.append(j)
-
-            ch_node = this_df['node'].iloc[-1]
-            mask = rest_df['node'].isin([ch_node]).any()
-            if mask:
-                duplicate_sources.append(src)
+    n = len(sources)
+    for i in range(n):
+        for j in range(i+1, n):
+            df1 = df[df.id == sources[i]].node.tolist()
+            df2 = df[df.id == sources[j]].node.tolist()
+            if not set(df1).isdisjoint(df2):
+                duplicate_sources.append(sources[j])
 
     df_new = df[~df['id'].isin(duplicate_sources)]
     return df_new
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
-def PlotProfilesByCluster(cluster_df):
+def PlotProfilesByCluster(stream_order=1):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -588,11 +843,21 @@ def PlotProfilesByCluster(cluster_df):
 
     Author: FJC
     """
-    # find the unique clusters for plotting
-    clusters = cluster_df['cluster_id'].unique()
-    clusters.sort()
 
-    counter = 0
+    # find the maximum distance from outlet in each cluster and use this to sort
+    # the data
+    # idx = cluster_df.groupby(['cluster_id'])['distance_from_outlet'].transform(max) == df['distance_from_outlet']
+    # lengths = cluster_df[idx]
+    # lengths = lengths.sort_values(by=['distance_from_outlet'])
+    # print lengths
+    # # find the unique clusters for plotting
+    # clusters = lengths['cluster_id'].tolist()
+    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    clusters = cluster_df['cluster_id'].unique()
+    #clusters.sort()
+
+
+    #counter = 0
     for cl in clusters:
         # set up a figure
         fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
@@ -601,74 +866,32 @@ def PlotProfilesByCluster(cluster_df):
 
         this_df = cluster_df[cluster_df['cluster_id'] == cl]
         cl = int(this_df.iloc[0]['cluster_id'])
+        this_colour = str(this_df.colour.unique()[0])
         sources = this_df['id'].unique()
         if (len(sources) > 1):
             for idx, src in enumerate(sources):
                 src_df = this_df[this_df['id'] == src]
                 src_df = src_df[src_df['slope'] != np.nan]
-                ax.plot(src_df['reg_dist'].as_matrix(), src_df['elevation'].as_matrix(), lw=1, color=colors[counter])
+                ax.plot(src_df['reg_dist'].values, src_df['slope'].values, lw=1, color=this_colour)
                 # save the colour to the cluster dataframe for later plots
-                cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
-            counter +=1
-        else:
-            ax.plot(this_df['reg_dist'].as_matrix(), this_df['elevation'].as_matrix(), lw=1, color=threshold_color)
+                #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = colors[counter]
+            #counter +=1
+        # else:
+        #     ax.plot(this_df['distance_from_outlet'].values, this_df['elevation'].values, lw=1, color=threshold_color)
             # save the colour to the cluster dataframe for later plots
-            cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
+            #cluster_df.loc[cluster_df.cluster_id==cl, 'colour'] = threshold_color
 
-        ax.set_xlabel('Distance from outlet (m)')
-        ax.set_ylabel('Elevation (m)')
+        ax.set_xlabel('Distance from source (m)')
+        ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
-        plt.savefig(DataDirectory+fname_prefix+('_profiles_upstream_clustered_{}.png').format(int(cl)), dpi=300)
+        plt.savefig(DataDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300)
         plt.clf()
 
     # write the clustered dataframe to csv
-    cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+    #cluster_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv', index=False)
 
     return cluster_df
-
-def MakeHillshadePlotClusters(drape_lithology=False):
-    """
-    Make a shaded relief plot of the raster with the channels coloured by the cluster
-    value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
-
-    Args:
-        drape_lithology (bool): true to add in the raster with the lithology information. At the
-        moment only works for the model runs.
-
-    Author: FJC
-    """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
-
-
-    # set figure sizes based on format
-    fig_width_inches = 4.92126
-
-    # some raster names
-    raster_ext = '.bil'
-    BackgroundRasterName = fname_prefix+raster_ext
-    HillshadeName = fname_prefix+'_hs'+raster_ext
-
-    # create the map figure
-    if drape_lithology:
-        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km",colourbar_location='bottom')
-        LithoName = 'spatial_K_KRaster'+raster_ext
-        MF.add_drape_image(LithoName, DataDirectory,alpha=0.5,colourmap="gray", show_colourbar = True, colorbarlabel='K', discrete_cmap=True, n_colours=2,cbar_type=str)
-    else:
-        MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM_km")
-    clusters = cluster_df.cluster_id.unique()
-    for cl in clusters:
-        # plot the whole channel network in black
-        #ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        #MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.8',manual_size=5, zorder=1)
-        # plot the clustered profiles in the correct colour
-        this_df = cluster_df[cluster_df.cluster_id == cl]
-        this_colour = str(this_df.colour.unique()[0])
-        ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=5)
-
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 def PlotMedianProfiles():
     """
@@ -683,7 +906,7 @@ def PlotMedianProfiles():
     clusters = df.cluster_id.unique()
     clusters.sort()
     sources = df.id.unique()
-    dist_array = df[df.id == sources[0]].reg_dist.as_matrix()
+    dist_array = df[df.id == sources[0]].reg_dist.values
 
     # set up a figure
     fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,6), sharex=True, sharey=True)
@@ -737,13 +960,13 @@ def PlotMedianProfiles():
     plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     plt.clf()
 
-def PlotSlopeArea():
+def PlotSlopeArea(stream_order=1):
     """
     Make a summary plot showing the S-A plot for each cluster.
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_upstream_clustered.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
     # find out some info
     clusters = df.cluster_id.unique()
@@ -762,21 +985,26 @@ def PlotSlopeArea():
 
         cluster_df = df[df.cluster_id == cl]
 
+        # calculate the channel steepness
+        slope, intercept, r, p, std = stats.linregress(cluster_df['drainage_area'], cluster_df['slope'])
+        print("Steepness index: {}".format(intercept))
+
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
-        ax[i].text(0.9, 0.9,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=8)
+        ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        ax[i].set_ylim(0.0001, 1)
+        #ax[i].set_ylim(0.0001, 1)
+        ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)), fontsize=16)
 
     # set axis labels
-    plt.xlabel('Drainage area (m$^2$)')
-    plt.ylabel('Gradient', labelpad=15)
-    plt.subplots_adjust(left=0.15, hspace=0.5)
+    plt.xlabel('Drainage area (m$^2$)', fontsize=14)
+    plt.ylabel('Gradient', labelpad=15, fontsize=14)
+    plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_SA_median.png'), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300, transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
@@ -809,7 +1037,7 @@ def PlotUniqueStreamsWithLength(step=2, slope_window_size=25):
         reg_df, __ = ProfilesRegularDistance(thinned_df, profile_len = len, step=step, slope_window_size=slope_window_size)
         reg_df = RemoveNonUniqueProfiles(reg_df)
         n_sources = reg_df['id'].unique().size
-        print n_sources
+        print (n_sources)
         ax.scatter(len, n_sources, s = 25, c='w', edgecolors='k')
 
     ax.set_xlabel('Profile length (m)')
@@ -822,7 +1050,7 @@ def PlotLongitudinalProfiles():
     """
     Just make a simple plot of the river long profiles
     """
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv')
 
     # set up a figure
     fig = plt.figure(1, facecolor='white')
@@ -833,13 +1061,74 @@ def PlotLongitudinalProfiles():
 
     for src in sources:
         this_df = df[df['id'] == src]
-        ax.plot(this_df['reg_dist'], this_df['elevation'])
+        ax.plot(this_df['distance_from_outlet'], this_df['elevation'])
 
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
 
     plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
     plt.clf()
+
+# def MakeShadedSlopeMap():
+#     """
+#     Make a nice shaded slope image
+#     """
+#     # set figure sizes based on format
+#     fig_width_inches = 4.92126
+
+#     # some raster names
+#     raster_ext = '.bil'
+#     BackgroundRasterName = fname_prefix+raster_ext
+#     HillshadeName = fname_prefix+'_hs'+raster_ext
+#     SlopeName = fname_prefix+'_slope'+raster_ext
+
+#     # create the map figure
+#     MF = MapFigure(HillshadeName, DataDirectory,coord_type="UTM",colourbar_location='right')
+#     MF.add_drape_image(BackgroundRasterName, DataDirectory,alpha=0.4,colourmap="terrain", show_colourbar = True, colorbarlabel='Elevation (m)', discrete_cmap=False)
+
+#     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_slope.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+
+def PlotTrunkChannel():
+    """
+    Make a simple plot of the longest channel. This is mostly to use for the model runs.
+    """
+    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
+
+    this_df = df[df['id'] == trunk_src]
+    ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
+
+    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_ylabel('Elevation (m)')
+    #ax.set_xlim(0,2500)
+    #ax.set_ylim(0,35)
+
+    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
+    plt.clf()
+
+def PlotClusterDataByLithology(shapefile_name='geol.shp', lith_field='lithology', res=1):
+    """
+    Make a plot showing the data for clusters by lithology
+
+    Args:
+        shapefile_name (str): name of the shapefile with the lithology information
+        lith_field (str): field name from the shapefile
+        res (int): raster resolution
+
+    Author: FJC
+    """
+    from LSDPlottingTools import LSDMap_VectorTools as VT
+
+    # rasterise the lithology shapefile
+    lith_raster = VT.Rasterize_geologic_maps_pythonic(DataDirectory+shapefile_name,res,lith_field)
+
+    # now
 
 if __name__ == '__main__':
 
@@ -857,11 +1146,16 @@ if __name__ == '__main__':
     parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
 
     # The options for clustering
-    parser.add_argument("-len", "--profile_len", type=int, help="The minimum length over which a profile has to be unique (i.e. does not share nodes with any other profile)", default=10)
+    parser.add_argument("-len", "--profile_len", type=int, help="The minimum length of a profile to keep it. Default = 5 nodes.", default=5)
     parser.add_argument("-sw", "--slope_window", type=int, help="The window size for calculating the slope based on a regression through an equal number of nodes upstream and downstream of the node of interest. This is the total number of nodes that are used for calculating the slope. For example, a slope window of 25 would fit a regression through 12 nodes upstream and downstream of the node, plus the node itself. The default is 25 nodes.", default=25)
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'ward'.", default='ward')
     parser.add_argument("-c", "--min_corr", type=float, help="The minimum correlation for defining the clusters. Use a smaller number to get less clusters, and a bigger number to get more clusters (from 0 = no correlation, to 1 = perfect correlation). The default is 0.5. DEPRECATED - now we calculate the threshold statistically.", default=0.5)
-    parser.add_argument("-step", "-step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
+    parser.add_argument("-step", "--step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
+    parser.add_argument("-so", "--stream_order", type=int, help="The stream order that you wish to cluster over. Default is 1.", default=1)
+
+    # Options for raster plotting
+    parser.add_argument("-shp", "--shp", type=str, help="Pass a shapefile with the geology for plotting. If nothing is passed then we don't make this plot.", default=None)
+    parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
 
     args = parser.parse_args()
 
@@ -888,30 +1182,38 @@ if __name__ == '__main__':
             output.write(str(arg)+','+str(getattr(args, arg))+'\n')
         output.close()
 
+    # check if the slopes file exists
+    slope_file = DataDirectory+args.fname_prefix+'_slopes.csv'
+    if os.path.isfile(slope_file):
+        df = pd.read_csv(slope_file)
+    else:
+        # read in the original csv
+        df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
 
-    # set colour palette: 8 class Set 1 from http://colorbrewer2.org
-    N_colors = 8
-    colors = LSDP.colours.list_of_hex_colours(N_colors, 'Dark2')
-    threshold_color = '#377eb8'
+        # remove profiles with short unique section
+        # calculate the slope
+        df = CalculateSlope(df, args.slope_window)
+        df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
-    # # read in the original csv
-    df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+    # get the profiles for the chosen stream order
+    new_df = GetProfilesByStreamOrder(df, args.step, args.slope_window, args.stream_order)
+    if args.stream_order > 1:
+        new_df = RemoveNonUniqueProfiles(new_df)
 
-    # calculate the slope
-    df = RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
-    df = CalculateSlope(df, args.slope_window)
+    new_df = RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
-    regular_df = ProfilesRegDistVaryingLength(df, profile_len=args.profile_len, step=args.step, slope_window_size=args.slope_window)
-
-    # cluster the profiles
-    regular_df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_reg_dist_var_length.csv')
-    cluster_df = ClusterProfilesVaryingLength(regular_df, args.min_corr,method=args.method)
-    PlotProfilesByCluster(cluster_df)
-
-    PlotMedianProfiles()
-    MakeHillshadePlotClusters()
-    PlotSlopeArea()
-    PlotLongitudinalProfiles()
+    # do the clustering
+    ClusterProfilesVaryingLength(new_df, args.method, args.stream_order)
+    PlotProfilesByCluster(args.stream_order)
+    # # #
+    # # #PlotMedianProfiles()
+    raster_plotting.MakeHillshadePlotClusters(DataDirectory, args.fname_prefix, args.stream_order)
+    if args.shp:
+        raster_plotting.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+    PlotSlopeArea(args.stream_order)
+    PlotTrunkChannel()
+    #PlotLongitudinalProfiles()
+    #MakeShadedSlopeMap()
 
     print('Enjoy your clusters, pal')
 

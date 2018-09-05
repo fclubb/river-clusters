@@ -106,6 +106,11 @@ class BaseRaster(object):
     def zorder(self):
         self._zorder = 1
 
+    @property
+    def drapeminthreshold(self):
+        self._drapeminthreshold = None
+
+
     #def get_apect_ratio(self):
     #    # Get the aspect ratio
     #    self._RasterAspectRatio = (self.xmax-self.xmin)/(self.ymax-self.ymin)
@@ -350,7 +355,7 @@ class MapFigure(object):
 
         if self._coord_type == "UTM":
             self.tick_xlocs,self.tick_ylocs,self.tick_x_labels,self.tick_y_labels = LSDP.GetTicksForUTMNoInversion(self._BaseRasterFullName,self._xmax,self._xmin,
-                             self._ymax,self._ymin,self._n_target_ticks,self.min_tick_spacing)
+                             self._ymax,self._ymin,self._n_target_ticks,minimum_tick_spacing=100)
         elif self._coord_type == "UTM_km":
             self.tick_xlocs,self.tick_ylocs,self.tick_x_labels,self.tick_y_labels = LSDP.GetTicksForUTMNoInversion(self._BaseRasterFullName,self._xmax,self._xmin,
                              self._ymax,self._ymin,self._n_target_ticks,minimum_tick_spacing=1000)
@@ -490,7 +495,7 @@ class MapFigure(object):
                         colour_min_max = [],
                         modify_raster_values=False,
                         old_values=[], new_values=[], cbar_type=float,
-                        NFF_opti = False, custom_min_max = [], zorder=1):
+                        NFF_opti = False, custom_min_max = [], zorder=1, mask_value = None):
         """
         This function adds a drape over the base raster.
 
@@ -520,7 +525,7 @@ class MapFigure(object):
         self.ax_list = self._add_drape_image(self.ax_list,RasterName,Directory,colourmap,alpha,
                                              colorbarlabel,discrete_cmap,n_colours, norm,
                                              colour_min_max,modify_raster_values,old_values,
-                                             new_values,cbar_type, NFF_opti, custom_min_max, zorder=zorder)
+                                             new_values,cbar_type, NFF_opti, custom_min_max, zorder=zorder, mask_value=mask_value)
         #print("Getting axis limits in drape function: ")
         #print(self.ax_list[0].get_xlim())
 
@@ -533,7 +538,7 @@ class MapFigure(object):
                          colour_min_max = [],
                          modify_raster_values = False,
                          old_values=[], new_values = [], cbar_type=float,
-                         NFF_opti = False, custom_min_max = [],zorder=1):
+                         NFF_opti = False, custom_min_max = [],zorder=1, mask_value = None):
         """
         This function adds a drape over the base raster. It does all the dirty work
         I can't quite remember why I did it in two steps but I vaguely recall trying it in one step and it didn't work.
@@ -555,6 +560,7 @@ class MapFigure(object):
             cbar_type (type): Sets the type of the colourbar (if you want int labels, set to int)
             NFF_opti (bool): If true, uses the new file loading functions. It is faster but hasn't been completely tested.
             custom_min_max (list of int/float): if it contains two elements, recast the raster to [min,max] values for display.
+            mask_value (int): if passed will ignore these values
 
         Author: SMM
         """
@@ -567,10 +573,11 @@ class MapFigure(object):
             colourmap = self.cmap_discretize(colourmap, n_colours)
 
 
-
-
         self._RasterList.append(Raster)
         self._RasterList[-1].set_colourmap(colourmap)
+
+        if mask_value is not None:
+            self._RasterList[-1]._RasterArray = np.ma.masked_where( self._RasterList[-1]._RasterArray == mask_value, self._RasterList[-1]._RasterArray)
         # I am recasting the raster to custom extents
         if len(custom_min_max)!=0:
             if len(custom_min_max)== 2:
@@ -902,7 +909,7 @@ class MapFigure(object):
         cdict = {}
 
         for ki,key in enumerate(('red','green','blue')):
-         cdict[key] = [ (indices[i], colors_rgba[i-1,ki], colors_rgba[i,ki]) for i in xrange(N+1) ]
+         cdict[key] = [ (indices[i], colors_rgba[i-1,ki], colors_rgba[i,ki]) for i in range(N+1) ]
 
         # Return colormap object.
         return _mcolors.LinearSegmentedColormap(cmap.name + "_%d"%N, cdict, 1024)
