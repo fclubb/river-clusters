@@ -8,9 +8,12 @@
 
 from LSDPlottingTools import LSDMap_VectorTools as VT
 from LSDPlottingTools import LSDMap_GDALIO as IO
+from LSDPlottingTools import LSDMap_BasicManipulation as BM
 from LSDMapFigure import PlottingRaster
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 
 def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1):
@@ -78,6 +81,10 @@ def PlotHillshadewithClusters(DataDirectory, fname_prefix,stream_order=1):
         BackgroundRasterName = fname_prefix+raster_ext
         HSName = fname_prefix+'_hs'+raster_ext
 
+        if not os.path.isfile(DataDirectory+HSName):
+            # make a hillshade
+            BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
+
         # create the map figure
         MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
 
@@ -121,6 +128,11 @@ def PlotLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1, shape
         raster_ext = '.bil'
         BackgroundRasterName = fname_prefix+raster_ext
         HSName = fname_prefix+'_hs'+raster_ext
+
+        if not os.path.isfile(DataDirectory+HSName):
+            print("Making a hillshade for you")
+            # make a hillshade
+            BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
 
         # create the map figure
         MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
@@ -166,19 +178,23 @@ def PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1,
 
 
         # set figure sizes based on format
-        fig_width_inches = 4.92126
+        fig_width_inches = 8
 
         # some raster names
         raster_ext = '.bil'
         BackgroundRasterName = fname_prefix+raster_ext
         HSName = fname_prefix+'_hs'+raster_ext
 
+        if not os.path.isfile(DataDirectory+HSName):
+            # make a hillshade
+            BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
+
         # create the map figure
         MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
 
         #geology
         LithName = geol_raster+raster_ext
-        MF.add_drape_image(LithName, DataDirectory, colourmap=plt.cm.jet, alpha=0.4, show_colourbar = False, discrete_cmap=True, cbar_type=int,mask_value=0)
+        MF.add_drape_image(LithName, DataDirectory, colourmap=plt.cm.jet, alpha=0.5, show_colourbar = False, discrete_cmap=True, cbar_type=int,mask_value=0)
 
         clusters = cluster_df.cluster_id.unique()
         for cl in clusters:
@@ -196,7 +212,7 @@ def PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1,
 if __name__ == '__main__':
 
     DataDirectory = '/home/clubb/Data_for_papers/river_clusters/Pozo/'
-    fname_prefix  = 'Pozo_DTM'
+    fname_prefix  = 'Pozo_DTM_basin_208'
     stream_order = 1
     shp = 'pozo_geol_WGS84.shp'
     field = 'Lithology'
