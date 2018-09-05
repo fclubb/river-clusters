@@ -4,22 +4,29 @@ This repository contains code for clustering rivers in different catchments base
 
 ## Dependencies
 
-To run this code you need to have Python installed. You must also have the following packages:
+The best way to run the code is to use `conda`. Install Anaconda or Miniconda with Python 3.6: https://conda.io/miniconda.html
 
-* matplotlib
-* scipy
-* numpy
-* pandas
-
-
-In addition to these packages, you also need to have `CorrCoef` installed, a Python C-extension for memory efficient and multithreaded Pearson product-moment correlation coefficient estimation using OpenMP, created by Aljoscha Rheinwalt. For more details see the [GitHub page](https://github.com/UP-RS-ESP/CorrCoef).
-
-To install:
+First of all clone the repository:
+```
+git clone https://github.com/fclubb/river-clusters.git
+cd river-clusters
+```
+Then create a new conda environment using the included `environment.yml` file:
 
 ```
-git clone https://github.com/Rheinwalt/CorrCoef.git
-cd CorrCoef
-sudo python setup.py install
+conda env create -f environment.yml
+```
+and activate the new environment by:
+```
+source activate river-clusters
+```
+You can then run the code from inside this environment using:
+```
+python cluster-river-profiles.py -h
+```
+which will bring up a help menu with the options.  The standard format is:
+```
+python cluster-river-profiles.py -dir </path/to/data/folder/> -fname <DEM_name> -so <stream_order_of_choice>
 ```
 ## Contact
 
