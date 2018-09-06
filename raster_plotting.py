@@ -34,7 +34,7 @@ def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1):
 
 
     # set figure sizes based on format
-    fig_width_inches = 4.92126
+    fig_width_inches = 8
 
     # some raster names
     raster_ext = '.bil'
@@ -74,7 +74,7 @@ def PlotHillshadewithClusters(DataDirectory, fname_prefix,stream_order=1):
 
 
         # set figure sizes based on format
-        fig_width_inches = 4.92126
+        fig_width_inches = 8
 
         # some raster names
         raster_ext = '.bil'

@@ -108,6 +108,7 @@ if __name__ == '__main__':
     # # #
     # # #PlotMedianProfiles()
     rpl.PlotElevationWithClusters(DataDirectory, args.fname_prefix, args.stream_order)
+    rpl.PlotHillshadewithClusters(DataDirectory, args.fname_prefix, args.stream_order)
     if args.shp:
         rpl.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
     pl.PlotSlopeArea(DataDirectory, args.fname_prefix, args.stream_order)
