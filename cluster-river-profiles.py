@@ -95,24 +95,24 @@ if __name__ == '__main__':
         df = cl.CalculateSlope(DataDirectory, args.fname_prefix, df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
-    # # get the profiles for the chosen stream order
-    # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
-    # if args.stream_order > 1:
-    #     new_df = cl.RemoveNonUniqueProfiles(new_df)
-    #
-    # new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
-    #
-    # # do the clustering
-    # cl.ClusterProfilesVaryingLength(DataDirectory, args.fname_prefix, new_df, args.method, args.stream_order)
-    # pl.PlotProfilesByCluster(DataDirectory, args.fname_prefix, args.stream_order)
-    # # # #
-    # # # #PlotMedianProfiles()
-    # rpl.PlotElevationWithClusters(DataDirectory, args.fname_prefix, args.stream_order)
-    # if args.shp:
-    #     rpl.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-    # pl.PlotSlopeArea(DataDirectory, args.fname_prefix, args.stream_order)
-    # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-    pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
+    # get the profiles for the chosen stream order
+    new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+    if args.stream_order > 1:
+        new_df = cl.RemoveNonUniqueProfiles(new_df)
+
+    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+
+    # do the clustering
+    cl.ClusterProfilesVaryingLength(DataDirectory, args.fname_prefix, new_df, args.method, args.stream_order)
+    pl.PlotProfilesByCluster(DataDirectory, args.fname_prefix, args.stream_order)
+    # # #
+    # # #PlotMedianProfiles()
+    rpl.PlotElevationWithClusters(DataDirectory, args.fname_prefix, args.stream_order)
+    if args.shp:
+        rpl.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+    pl.PlotSlopeArea(DataDirectory, args.fname_prefix, args.stream_order)
+    pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+    # pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
     #PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
 
