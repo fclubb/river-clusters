@@ -16,13 +16,15 @@ import os
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 
-def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1):
+def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1, cbar_loc='right', custom_cbar_min_max = []):
     """
     Make a plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
 
     Args:
         stream_order: the stream order of the profiles that you are analysing
+        cbar_loc: location of the colourbar, can be right, top, bottom, left, or none.
+        custom_cbar_min_max: list of [min, max] to recast the raster to for display.
 
     Author: FJC
     """
@@ -34,25 +36,33 @@ def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1):
 
 
     # set figure sizes based on format
-    fig_width_inches = 8
+    fig_width_inches = 4.92126
 
     # some raster names
     raster_ext = '.bil'
     BackgroundRasterName = fname_prefix+raster_ext
+    HSName = fname_prefix+'_hs'+raster_ext
 
-    # create the map figure
-    MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM")
+    if not os.path.isfile(DataDirectory+HSName):
+        # make a hillshade
+        BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
+
+    MF = MapFigure(HSName, DataDirectory,coord_type="UTM",colourbar_location = cbar_loc)
+    MF.add_drape_image(BackgroundRasterName,DataDirectory,colourmap = 'gray', alpha=0.8, colorbarlabel = "Elevation (m)",colour_min_max = custom_cbar_min_max)
+
+    # # create the map figure
+    # MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM",colour_min_max = custom_cbar_min_max)
 
     clusters = cluster_df.cluster_id.unique()
     for cl in clusters:
         # plot the whole channel network in black
         ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='0.9',manual_size=2, zorder=1, alpha=0.5)
+        MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='w',manual_size=1, zorder=2, alpha=1)
         # plot the clustered profiles in the correct colour
         this_df = cluster_df[cluster_df.cluster_id == cl]
         this_colour = str(this_df.colour.unique()[0])
         ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=3)
+        MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_elev_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 

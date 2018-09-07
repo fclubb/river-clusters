@@ -7,7 +7,7 @@ from matplotlib import rcParams
 from scipy import stats
 
 # Set up fonts for plots
-label_size = 12
+label_size = 10
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
@@ -181,17 +181,31 @@ def PlotSlopeArea(DataDirectory, fname_prefix, stream_order=1):
         cluster_df = df[df.cluster_id == cl]
 
         # calculate the channel steepness
-        slope, intercept, r, p, std = stats.linregress(cluster_df['drainage_area'], cluster_df['slope'])
+        area = cluster_df['drainage_area'].values
+        log_area = np.log10(cluster_df['drainage_area'].values)
+        log_slope = np.log10(cluster_df['slope'].values)
+        print(log_slope)
+        gradient, intercept, r, p, std = stats.linregress(log_area, log_slope)
+        print(intercept)
+        intercept = float(10**intercept)
         print("Steepness index: {}".format(intercept))
+        print("concavity: {}".format(gradient))
+        x2 = np.linspace(1,30000,100)
+        y2 = intercept*x2**(gradient)
 
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
-        ax[i].scatter(cluster_df['drainage_area'], cluster_df['slope'], color=this_colour, s=1)
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].scatter(area, cluster_df['slope'].values, color=this_colour, s=1)
+        #ax[i].scatter(log_area, log_slope, color=this_colour, s=1)
+        ax[i].plot(x2, y2, "--", c='k')
         ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        #ax[i].set_ylim(0.0001, 1)
-        ax[i].set_title('$k_s$ = {}'.format(round(intercept,4)), fontsize=16)
+        ax[i].set_xlim(900,10000)
+        ax[i].set_ylim(0.001, 1)
+        ax[i].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,4), round(abs(gradient),2)), fontsize=16)
+
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)', fontsize=14)
@@ -199,7 +213,76 @@ def PlotSlopeArea(DataDirectory, fname_prefix, stream_order=1):
     plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300, transparent=True)
+    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
+    """
+    Make a summary plot showing a SA plot and a chi plot for all the channels in the basin
+
+    Author: FJC
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes.csv')
+
+    # find out some info
+    sources = df.id.unique()
+
+    # set up a figure
+    fig,ax = plt.subplots(nrows=1,ncols=1, figsize=(5,5), sharex=False, sharey=False)
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+
+    # linear regression and extraction of steepness metrics
+    log_area = np.log10(df['drainage_area'].values)
+    log_slope = np.log10(df['slope'].values)
+    print(log_slope)
+    gradient, intercept, r, p, std = stats.linregress(log_area, log_slope)
+    print(intercept)
+    intercept = float(10**intercept)
+    print("Steepness index: {}".format(intercept))
+    print("concavity: {}".format(gradient))
+    x2 = np.linspace(1,10000000,100)
+    y2 = intercept*x2**(gradient)
+
+    # do log binning
+    bin_means, bin_edges, binnumber = stats.binned_statistic(log_area, log_slope, bins=20, statistic='mean')
+    print(bin_means)
+    mean_slopes = [10**x for x in bin_means]
+    print(mean_slopes)
+    bin_edges = [10**x for x in bin_edges]
+    bin_width = (bin_edges[1] - bin_edges[0])
+    bin_centres = bin_edges[1:] - bin_width/2
+
+    # get the error on each bin
+
+
+    # get the colour from the dataframe
+    #this_colour = str(cluster_df.colour.unique()[0])
+    ax.grid(color='0.8', linestyle='--', which='both', zorder=1)
+    ax.scatter(df['drainage_area'].values, df['slope'].values, color='0.5', s=1, zorder=2)
+    #plt.hlines(mean_slopes, bin_edges[:-1], bin_edges[1:], colors='g', lw=1, label='binned statistic of data')
+    ax.scatter(bin_centres, mean_slopes, color='r',zorder=3, s=20, marker='D', edgecolors='k')
+    #ax[i].scatter(log_area, log_slope, color=this_colour, s=1)
+    #ax.plot(x2, y2, "--", c='k')
+    #ax.text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    #ax.set_xlim(900,10000)
+    ax.set_ylim(0.01, 10)
+    ax.set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,4), round(abs(gradient),2)), fontsize=16)
+
+
+    # set axis labels
+    plt.xlabel('Drainage area (m$^2$)', fontsize=14)
+    plt.ylabel('Gradient', labelpad=15, fontsize=14)
+    plt.subplots_adjust(left=0.15, hspace=0.3)
+
+    # save and clear the figure
+    plt.savefig(DataDirectory+fname_prefix+'_SA_all.png', dpi=300)
     plt.clf()
     plt.cla()
     plt.close()
@@ -278,12 +361,13 @@ def PlotTrunkChannel(DataDirectory, fname_prefix):
     trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
 
     this_df = df[df['id'] == trunk_src]
+    ax.grid(color='0.8', linestyle='--', which='major')
     ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
 
-    ax.set_xlabel('Distance from outlet (m)')
-    ax.set_ylabel('Elevation (m)')
+    ax.set_xlabel('Distance from outlet (m)', fontsize=14)
+    ax.set_ylabel('Elevation (m)', fontsize=14)
     #ax.set_xlim(0,2500)
-    #ax.set_ylim(0,35)
+    ax.set_ylim(0,40)
 
     plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
     plt.clf()
@@ -316,9 +400,10 @@ def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
     print(reg_df['reg_dist'][1:20])
 
     #plotting
-    ax.scatter(this_df['distance_from_outlet'][::-1][:50], this_df['elevation'][:50], edgecolors='k', facecolor='white', s=30, label=None)
-    ax.scatter(this_df['distance_from_outlet'][::-1][12:37], this_df['elevation'][12:37], edgecolors='k', facecolor='0.5', s=30, label=None)
-    ax.scatter(this_df['distance_from_outlet'][::-1][24:25], this_df['elevation'][24:25], edgecolors='k', facecolor='red', s=40, label='Node of interest')
+    ax.grid(color='0.8', linestyle='--', which='major',zorder=1)
+    ax.scatter(this_df['distance_from_outlet'][::-1][:50], this_df['elevation'][:50], edgecolors='k', facecolor='white', s=30, label=None,zorder=2)
+    ax.scatter(this_df['distance_from_outlet'][::-1][12:37], this_df['elevation'][12:37], edgecolors='k', facecolor='0.5', s=30, label=None,zorder=3)
+    ax.scatter(this_df['distance_from_outlet'][::-1][24:25], this_df['elevation'][24:25], edgecolors='k', facecolor='red', s=40, label='Node of interest',zorder=4)
     #ax.plot(this_dist-1, new_elev-0.1, c='k', ls='--')
     ax.text(30, 8.2, 'Linear fit, $S = {}$'.format(np.round(abs(slope),4)),fontsize=10)
     ax.legend(loc='upper right', fontsize=10)

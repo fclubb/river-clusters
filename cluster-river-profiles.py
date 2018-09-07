@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--method", type=str, help="The method for clustering, see the scipy linkage docs for more information. The default is 'ward'.", default='ward')
     parser.add_argument("-step", "--step", type=int, help="The regular spacing in metres that you want the profiles to have for the clustering. This should be greater than sqrt(2* DataRes^2).  The default is 2 m which is appropriate for grids with a resolution of 1 m.", default = 2)
     parser.add_argument("-so", "--stream_order", type=int, help="The stream order that you wish to cluster over. Default is 1.", default=1)
+    parser.add_argument("-zmax", "--maximum_elevation_for_plotting", type=float, default = 100, help="This is the maximum elevation in the colourbar of the landscape plot.")
 
     # Options for raster plotting
     parser.add_argument("-shp", "--shp", type=str, help="Pass a shapefile with the geology for plotting. If nothing is passed then we don't make this plot.", default=None)
@@ -82,6 +83,9 @@ if __name__ == '__main__':
             output.write(str(arg)+','+str(getattr(args, arg))+'\n')
         output.close()
 
+    # set min and max of colourbar
+    cbar_min_max = [0,args.maximum_elevation_for_plotting]
+
     # check if the slopes file exists
     slope_file = DataDirectory+args.fname_prefix+'_slopes.csv'
     if os.path.isfile(slope_file):
@@ -107,13 +111,14 @@ if __name__ == '__main__':
     pl.PlotProfilesByCluster(DataDirectory, args.fname_prefix, args.stream_order)
     # # #
     # # #PlotMedianProfiles()
-    rpl.PlotElevationWithClusters(DataDirectory, args.fname_prefix, args.stream_order)
+    rpl.PlotElevationWithClusters(DataDirectory, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
     rpl.PlotHillshadewithClusters(DataDirectory, args.fname_prefix, args.stream_order)
     if args.shp:
         rpl.PlotLithologyWithClusters(DataDirectory, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
     pl.PlotSlopeArea(DataDirectory, args.fname_prefix, args.stream_order)
+    pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
     pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-    # pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
+    #pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
     #PlotLongitudinalProfiles()
     #MakeShadedSlopeMap()
 
