@@ -32,7 +32,7 @@ def list_of_hex_colours(N, base_cmap):
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
-def PlotProfilesByCluster(DataDirectory, fname_prefix, stream_order=1):
+def PlotProfilesByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
     """
     Function to make plots of the river profiles in each cluster
 
@@ -47,7 +47,7 @@ def PlotProfilesByCluster(DataDirectory, fname_prefix, stream_order=1):
     # print lengths
     # # find the unique clusters for plotting
     # clusters = lengths['cluster_id'].tolist()
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
     clusters = cluster_df['cluster_id'].unique()
     #clusters.sort()
 
@@ -80,7 +80,7 @@ def PlotProfilesByCluster(DataDirectory, fname_prefix, stream_order=1):
         ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
-        plt.savefig(DataDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300)
+        plt.savefig(OutDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300)
         plt.clf()
 
     # write the clustered dataframe to csv
@@ -88,7 +88,7 @@ def PlotProfilesByCluster(DataDirectory, fname_prefix, stream_order=1):
 
     return cluster_df
 
-def PlotMedianProfiles(DataDirectory, fname_prefix):
+def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix):
     """
     Make a summary plot showing the median profile for each cluster, both in
     gradient-distance and elevation-distance space.
@@ -128,7 +128,7 @@ def PlotMedianProfiles(DataDirectory, fname_prefix):
     plt.ylabel('Gradient')
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_profiles_median.png'), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+('_profiles_median.png'), dpi=300)
     plt.clf()
     plt.cla()
     plt.close()
@@ -152,16 +152,16 @@ def PlotMedianProfiles(DataDirectory, fname_prefix):
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
 
-    plt.savefig(DataDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+('_profiles_median_elev.png'), dpi=300)
     plt.clf()
 
-def PlotSlopeArea(DataDirectory, fname_prefix, stream_order=1):
+def PlotSlopeArea(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
     """
     Make a summary plot showing the S-A plot for each cluster.
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
     # find out some info
     clusters = df.cluster_id.unique()
@@ -184,7 +184,7 @@ def PlotSlopeArea(DataDirectory, fname_prefix, stream_order=1):
         area = cluster_df['drainage_area'].values
         log_area = np.log10(cluster_df['drainage_area'].values)
         log_slope = np.log10(cluster_df['slope'].values)
-        print(log_slope)
+        #print(log_slope)
         gradient, intercept, r, p, std = stats.linregress(log_area, log_slope)
         print(intercept)
         intercept = float(10**intercept)
@@ -213,7 +213,7 @@ def PlotSlopeArea(DataDirectory, fname_prefix, stream_order=1):
     plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
     plt.clf()
     plt.cla()
     plt.close()
@@ -239,7 +239,7 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     # linear regression and extraction of steepness metrics
     log_area = np.log10(df['drainage_area'].values)
     log_slope = np.log10(df['slope'].values)
-    print(log_slope)
+    #print(log_slope)
     gradient, intercept, r, p, std = stats.linregress(log_area, log_slope)
     print(intercept)
     intercept = float(10**intercept)
@@ -287,7 +287,7 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     plt.cla()
     plt.close()
 
-def PlotUniqueStreamsWithLength(DataDirectory, fname_prefix, step=2, slope_window_size=25):
+def PlotUniqueStreamsWithLength(DataDirectory, OutDirectory, fname_prefix, step=2, slope_window_size=25):
     """
     Function to make a plot of the number of unique channels you get (at least one non-overlapping
     node with different profile lengths that you analyse).
@@ -321,7 +321,7 @@ def PlotUniqueStreamsWithLength(DataDirectory, fname_prefix, step=2, slope_windo
     ax.set_xlabel('Profile length (m)')
     ax.set_ylabel('Number of unique channels')
 
-    plt.savefig(DataDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300)
     plt.clf()
 
 def PlotLongitudinalProfiles(DataDirectory, fname_prefix):

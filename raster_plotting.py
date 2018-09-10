@@ -16,7 +16,7 @@ import os
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 
-def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1, cbar_loc='right', custom_cbar_min_max = []):
+def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_order=1, cbar_loc='right', custom_cbar_min_max = []):
     """
     Make a plot of the raster with the channels coloured by the cluster
     value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
@@ -32,7 +32,7 @@ def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1, cbar_
     from LSDMapFigure.PlottingRaster import MapFigure
 
     df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-    cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
     # set figure sizes based on format
@@ -64,9 +64,9 @@ def PlotElevationWithClusters(DataDirectory, fname_prefix, stream_order=1, cbar_
         ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
         MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_elev_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_elev_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
-def PlotHillshadewithClusters(DataDirectory, fname_prefix,stream_order=1):
+def PlotHillshadewithClusters(DataDirectory, OutDirectory, fname_prefix,stream_order=1):
         """
         Make a hillshade of the raster with the channels coloured by the cluster
         value. Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
@@ -80,7 +80,7 @@ def PlotHillshadewithClusters(DataDirectory, fname_prefix,stream_order=1):
         from LSDMapFigure.PlottingRaster import MapFigure
 
         df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-        cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+        cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
         # set figure sizes based on format
@@ -109,9 +109,9 @@ def PlotHillshadewithClusters(DataDirectory, fname_prefix,stream_order=1):
             ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
             MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=3)
 
-        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_hs_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_hs_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
-def PlotLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1, shapefile_name = 'geol.shp', geol_field = 'geol'):
+def PlotLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_order=1, shapefile_name = 'geol.shp', geol_field = 'geol'):
         """
         Make a hillshade of the raster with the channels coloured by the cluster
         value. Rasterise a geology shapefile and drape on the top.
@@ -128,7 +128,7 @@ def PlotLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1, shape
         from LSDMapFigure.PlottingRaster import MapFigure
 
         df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-        cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+        cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
         # set figure sizes based on format
@@ -164,10 +164,10 @@ def PlotLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1, shape
             ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
             MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=3)
 
-        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 
-def PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1, geol_raster = 'geol'):
+def PlotRasterLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_order=1, geol_raster = 'geol'):
         """
         Make a hillshade of the raster with the channels coloured by the cluster
         value. Rasterise a geology shapefile and drape on the top.
@@ -184,7 +184,7 @@ def PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1,
         from LSDMapFigure.PlottingRaster import MapFigure
 
         df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-        cluster_df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+        cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
         # set figure sizes based on format
@@ -217,7 +217,7 @@ def PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order=1,
             ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
             MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
-        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 if __name__ == '__main__':
 

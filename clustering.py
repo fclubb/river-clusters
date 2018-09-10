@@ -366,7 +366,7 @@ def ClusterProfiles(DataDirectory, fname_prefix, df, profile_len=100, step=2, mi
 
     return df
 
-def ClusterProfilesVaryingLength(DataDirectory, fname_prefix, df, method='ward',stream_order=1):
+def ClusterProfilesVaryingLength(DataDirectory, OutDirectory, fname_prefix, df, method='ward',stream_order=1,threshold_level=0):
     """
     Cluster the profiles based on gradient and distance from source. This works for profiles of varying length.
     Aggolmerative clustering, see here for more info:
@@ -376,6 +376,9 @@ def ClusterProfilesVaryingLength(DataDirectory, fname_prefix, df, method='ward',
         df: pandas dataframe from the river profile csv.
         method (str): clustering method to use, see scipy docs. Can be 'single', 'complete', 'average',
         'weighted', 'centroid', 'median', or 'ward'. Default is 'ward'.
+        stream_order: the stream order of the profiles, default = first order.
+        threshold_level: the level at which to cut the dendrogram. Threshold level 0 is the default, and this is the level
+        with the maximum distance between clusters. Can increase this to 1 to take the second max distance.
 
     Author: AR, FJC
     """
@@ -408,19 +411,11 @@ def ClusterProfilesVaryingLength(DataDirectory, fname_prefix, df, method='ward',
             cc[k] = AverageEuclidianDifference(tsi, tsj)
             k += 1
 
-    #print np.isnan(cc)
-    #print cc
-    # distances
-    #dd = np.arccos(cc)
-    #print dd
-    #print len(dd)
-    # do agglomerative clustering by stepwise pair matching
-    # based on angle between scalar products of time series
     ln = linkage(cc, method=method)
 
     # make a plot of the distance vs number of clusters. Use this to determine
     # the threshold
-    thr = PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln)
+    thr = PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln, threshold_level)
 
     # compute cluster indices
     cl = fcluster(ln, thr, criterion = 'distance')
@@ -455,10 +450,10 @@ def ClusterProfilesVaryingLength(DataDirectory, fname_prefix, df, method='ward',
     R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color,no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
-    plt.savefig(DataDirectory+fname_prefix+"_dendrogram_SO{}.png".format(stream_order), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+"_dendrogram_SO{}.png".format(stream_order), dpi=300)
     plt.clf()
 
-    df.to_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order), index=False)
+    df.to_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order), index=False)
 
     return df
 
@@ -601,7 +596,7 @@ def ClusterProfilesDrainageArea(DataDirectory, fname_prefix, df, profile_len=100
     df.to_csv(DataDirectory+args.fname_prefix+'_profiles_upstream_clustered.csv', index=False)
     return df
 
-def PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln):
+def PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln, threshold_level=0):
     """
     Make a plot of the distance between each cluster compared to the
     number of clusters. Maybe use this to determine where to put the distance
@@ -609,6 +604,7 @@ def PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln):
 
     Args:
         ln: linkage matrix from clustering
+        threshold_level: which level to return the threshold at. 0 = max distance between clusters.
 
     Author: FJC
     """
@@ -634,9 +630,9 @@ def PlotDistanceVsNClusters(DataDirectory, fname_prefix, ln):
     deltas = [j-i for i, j in zip(dist[:-1], dist[1:])]
     # get the argmax of the difference
     i = np.argmax(deltas)
-    n_clusters = clusters[i+1]
+    n_clusters = clusters[i-threshold_level]
     # now find the distance threshold corresponding to this
-    thr = dist[i]
+    thr = dist[i-threshold_level]
     print ('The optimum distance threshold is '+str(thr))
     # now save the figure
     plt.xlabel('Number of clusters')
