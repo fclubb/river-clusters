@@ -151,7 +151,7 @@ def PlotLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
         #rasterise the shapefile
         new_shp, geol_dict = VT.geologic_maps_modify_shapefile(DataDirectory+ shapefile_name, geol_field)
         lith_raster = VT.Rasterize_geologic_maps_pythonic(new_shp, res, geol_field)
-        MF.add_drape_image(lith_raster, "", colourmap=plt.cm.jet, alpha=0.4, show_colourbar = False, discrete_cmap=True, cbar_type=int)
+        MF.add_drape_image(lith_raster, "", colourmap=plt.cm.jet, alpha=0.4, show_colourbar = False, discrete_cmap=True, cbar_type=int,mask_value=0)
 
         clusters = cluster_df.cluster_id.unique()
         for cl in clusters:
@@ -203,7 +203,8 @@ def PlotRasterLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, s
         MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
 
         #geology
-        LithName = geol_raster+raster_ext
+        LithName = geol_raster
+        print("The geology raster is"+LithName)
         MF.add_drape_image(LithName, DataDirectory, colourmap=plt.cm.jet, alpha=0.5, show_colourbar = False, discrete_cmap=True, cbar_type=int,mask_value=0)
 
         clusters = cluster_df.cluster_id.unique()
@@ -218,6 +219,43 @@ def PlotRasterLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, s
             MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
         MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+
+def PlotRasterLithology(DataDirectory, fname_prefix, geol_raster = 'geol'):
+        """
+        Make a hillshade and rasterise a geology shapefile and drape on the top.
+        Uses the LSDPlottingTools libraries. https://github.com/LSDtopotools/LSDMappingTools
+
+        Args:
+            stream_order: the stream order of the profiles that you are analysing
+            shapefile_name: name of the lithology shapefile
+            geol_field: the field of the shapefile that has the lithology information
+
+        Author: FJC
+        """
+        import LSDPlottingTools as LSDP
+        from LSDMapFigure.PlottingRaster import MapFigure
+
+        # set figure sizes based on format
+        fig_width_inches = 8
+
+        # some raster names
+        raster_ext = '.bil'
+        BackgroundRasterName = fname_prefix+raster_ext
+        HSName = fname_prefix+'_hs'+raster_ext
+
+        if not os.path.isfile(DataDirectory+HSName):
+            # make a hillshade
+            BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
+
+        # create the map figure
+        MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
+
+        #geology
+        LithName = geol_raster
+        print("The geology raster is"+LithName)
+        MF.add_drape_image(LithName, DataDirectory, colourmap=plt.cm.jet, alpha=0.5, show_colourbar = False, discrete_cmap=True, cbar_type=int,mask_value=0)
+
+        MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_lith.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
 if __name__ == '__main__':
 

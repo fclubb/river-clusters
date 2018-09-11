@@ -138,7 +138,8 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
     clusters = df.cluster_id.unique()
     clusters.sort()
     sources = df.id.unique()
-    dist_array = df[df.id == sources[0]].reg_dist.values
+    max_source = df.loc[df['reg_dist'].idxmax()]['id']
+    dist_array = df[df.id == max_source].reg_dist.values
 
     # set up a figure
     fig,ax = plt.subplots(nrows=1,ncols=1, figsize=(6,4), sharex=True, sharey=True)
@@ -159,7 +160,7 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
         ax.grid(color='0.8', linestyle='--', which='both')
         ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
         ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
-        ax.set_ylim(0,0.5)
+        #ax.set_ylim(0,0.4)
         #ax.text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax.transAxes,fontsize=8)
 
     # set axis labels
@@ -230,7 +231,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         # calculate the channel steepness
         area = all_df['drainage_area'].values
         med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(all_df['slope'], area)
-        print(med_slopes)
+        #print(med_slopes)
         # print(iqr_slopes)
 
         #print(log_slope)

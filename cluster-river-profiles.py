@@ -57,6 +57,7 @@ if __name__ == '__main__':
     # Options for raster plotting
     parser.add_argument("-shp", "--shp", type=str, help="Pass a shapefile with the geology for plotting. If nothing is passed then we don't make this plot.", default=None)
     parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
+    parser.add_argument("-geol", "--geol_raster", type=str, help="Pass a raster with the geology for plotting.")
 
     args = parser.parse_args()
 
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     if args.stream_order > 1:
         new_df = cl.RemoveNonUniqueProfiles(new_df)
 
-    #new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
     # do the clustering. We will do this at two thrsehold levels for the cutoff point.
     thr_levels = [0,1]
@@ -112,19 +113,20 @@ if __name__ == '__main__':
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):
             os.makedirs(new_dir)
-        #cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
+        cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
         pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
         rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         if args.shp:
             rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-        pl.PlotSlopeArea(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        if args.geol_raster:
+            rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
+        pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        #pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
+        # #pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-    #pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
-    #PlotLongitudinalProfiles()
-    #MakeShadedSlopeMap()
+    if args.geol_raster:
+        rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
 
     print('Enjoy your clusters, pal')
 
