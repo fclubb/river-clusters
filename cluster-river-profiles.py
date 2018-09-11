@@ -104,7 +104,7 @@ if __name__ == '__main__':
     if args.stream_order > 1:
         new_df = cl.RemoveNonUniqueProfiles(new_df)
 
-    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    #new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
 
     # do the clustering. We will do this at two thrsehold levels for the cutoff point.
     thr_levels = [0,1]
@@ -112,15 +112,14 @@ if __name__ == '__main__':
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):
             os.makedirs(new_dir)
-        cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
+        #cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
         pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # # #
-        # # #PlotMedianProfiles()
         rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
         rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         if args.shp:
             rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
         pl.PlotSlopeArea(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         #pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
     #pl.PlotElevDistanceTrunkChannel(DataDirectory, args.fname_prefix)
