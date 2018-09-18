@@ -160,12 +160,12 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
         ax.grid(color='0.8', linestyle='--', which='both')
         ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
         ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
-        #ax.set_ylim(0,0.4)
+        ax.set_ylim(0,0.4)
         #ax.text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax.transAxes,fontsize=8)
 
     # set axis labels
-    plt.xlabel('Distance from source (m)', labelpad=0.1, fontsize=14)
-    plt.ylabel('Gradient', labelpad=10, fontsize=14)
+    plt.xlabel('Distance from source (m)', labelpad=5, fontsize=14)
+    plt.ylabel('Gradient (m/m)', labelpad=10, fontsize=14)
     plt.subplots_adjust(bottom=0.2, left=0.15)
 
     # save and clear the figure
@@ -562,24 +562,24 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     """
     Make a boxplot showing the channel gradient stats for each cluster
     """
+
     # read the csv and get some info
     df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
     colors = df['colour'].unique()
-    print(colors)
-    labels = [round(x,0) for x in df['cluster_id'].unique()]
 
     # set props for fliers
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
                   linestyle='none', markeredgecolor='k')
 
     # make the boxplot and return the dict with the boxplot properties
-    bp_dict = df.boxplot(column=['slope'], by=['cluster_id'], return_type='both', patch_artist= True, labels=labels, flierprops=flierprops)
+    bp_dict = df.boxplot(column=['slope'], by=['cluster_id'], return_type='both', patch_artist= True, flierprops=flierprops, figsize=(5,5))
     # make the median lines black
     #[[item.set_color('k') for item in bp_dict[key]['medians']] for key in bp_dict.keys()]
 
     # change the colours based on the cluster ID
     for row_key, (ax,row) in bp_dict.iteritems():
-        ax.set_xlabel('')
+        plt.xlabel('')
+        ax.set_title('')
         j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
         for i,cp in enumerate(row['caps']):
             if i%2==0:
@@ -592,7 +592,7 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
             wh.set_color(colors[j])
         for i,box in enumerate(row['boxes']):
             box.set_facecolor(colors[i])
-            box.set_alpha(0.5)
+            box.set_alpha(0.7)
             box.set_edgecolor(colors[i])
         for i,med in enumerate(row['medians']):
             med.set(color=colors[i])
@@ -600,10 +600,12 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
             pt.set_markeredgecolor(colors[i])
 
 
-    ax.grid(color='0.8', linestyle='--', which='major', zorder=1, axis='y')
+    ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
+    labels = ["Cluster {}".format(int(x)) for x in df.cluster_id.unique()]
+    ax.set_xticklabels(labels, fontsize=14)
     #print(boxplot)
     plt.suptitle('')
-    ax.set_ylabel('Gradient (m/m)')
-    ax.set_xlabel('Cluster ID')
+    ax.set_ylabel('Gradient (m/m)', fontsize=14)
+    plt.subplots_adjust(left=0.2)
     plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
     plt.clf()
