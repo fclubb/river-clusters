@@ -229,7 +229,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         all_df =  df[df['id'].isin(these_sources)]
 
         # calculate the channel steepness
-        area = all_df['drainage_area'].values
+        area = all_df['drainage_area'][all_df['drainage_area'] > 1000].values
         med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(all_df['slope'], area)
         #print(med_slopes)
         # print(iqr_slopes)
@@ -556,4 +556,54 @@ def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
     #ax.set_ylim(0,35)
 
     plt.savefig(DataDirectory+fname_prefix+'_trunk_elev_dist.png', dpi=300)
+    plt.clf()
+
+def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
+    """
+    Make a boxplot showing the channel gradient stats for each cluster
+    """
+    # read the csv and get some info
+    df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
+    colors = df['colour'].unique()
+    print(colors)
+    labels = [round(x,0) for x in df['cluster_id'].unique()]
+
+    # set props for fliers
+    flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
+                  linestyle='none', markeredgecolor='k')
+
+    # make the boxplot and return the dict with the boxplot properties
+    bp_dict = df.boxplot(column=['slope'], by=['cluster_id'], return_type='both', patch_artist= True, labels=labels, flierprops=flierprops)
+    # make the median lines black
+    #[[item.set_color('k') for item in bp_dict[key]['medians']] for key in bp_dict.keys()]
+
+    # change the colours based on the cluster ID
+    for row_key, (ax,row) in bp_dict.iteritems():
+        ax.set_xlabel('')
+        j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
+        for i,cp in enumerate(row['caps']):
+            if i%2==0:
+                j+=1
+            cp.set(color=colors[j])
+        j=-1
+        for i,wh in enumerate(row['whiskers']):
+            if i%2==0:
+                j+=1
+            wh.set_color(colors[j])
+        for i,box in enumerate(row['boxes']):
+            box.set_facecolor(colors[i])
+            box.set_alpha(0.5)
+            box.set_edgecolor(colors[i])
+        for i,med in enumerate(row['medians']):
+            med.set(color=colors[i])
+        for i,pt in enumerate(row['fliers']):
+            pt.set_markeredgecolor(colors[i])
+
+
+    ax.grid(color='0.8', linestyle='--', which='major', zorder=1, axis='y')
+    #print(boxplot)
+    plt.suptitle('')
+    ax.set_ylabel('Gradient (m/m)')
+    ax.set_xlabel('Cluster ID')
+    plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
     plt.clf()

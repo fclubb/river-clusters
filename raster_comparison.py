@@ -51,8 +51,8 @@ def BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, st
     plt.xticks(range(1, len(labels) + 1), labels)
     plt.show()
 
-DataDirectory = '/home/fiona/OneDrive/river_clusters/Pozo/'
-OutDirectory = DataDirectory+'threshold_1/'
+DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
+OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM'
-raster_name = 'Pozo_3mRad_1mSP_IQRinc_v2.tif'
+raster_name = 'pozo_geol_WGS84_reclass.tif'
 BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1)
