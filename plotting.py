@@ -160,7 +160,7 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
         ax.grid(color='0.8', linestyle='--', which='both')
         ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
         ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
-        ax.set_ylim(0,0.4)
+        #ax.set_ylim(0,0.4)
         #ax.text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax.transAxes,fontsize=8)
 
     # set axis labels
@@ -197,10 +197,15 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
     # plt.savefig(OutDirectory+fname_prefix+('_profiles_median_elev_SO{}.png'.format(stream_order)), dpi=300)
     # plt.clf()
 
-def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
+def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1, orientation='vertical', ref_theta=0.45, nbins=20, area_t = 1000):
     """
     Make a summary plot showing the S-A plot for each cluster. Includes the data from
     all the way down the channel profile
+    Args:
+        orientation: subplots, either horizontal or vertical
+        nbins: number of bins for doing the log binning. default = 20
+        area_t = threshold area below which we will remove data to only plot the
+        power law through the fluvial domain. default = 1000 m^2
 
     Author: FJC
     """
@@ -213,7 +218,10 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
     sources = cluster_df.id.unique()
 
     # set up a figure
-    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,8), sharex=False, sharey=False)
+    if orientation == "horizontal":
+        fig,ax = plt.subplots(nrows=1,ncols=len(clusters), figsize=(10,5), sharex=False, sharey=False)
+    else:
+        fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,8), sharex=False, sharey=False)
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
@@ -225,7 +233,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         df.loc[df.id==id, 'cluster_id'] = this_id
 
     # now group by the node id and remove any nodes which identify as multiple clusters
-    df = df.groupby('id').filter(lambda x: x['cluster_id'].nunique() > 1)
+    df = df.loc[df.groupby('node').filter(lambda x: x['cluster_id'].nunique() == 1).index]
 
     # for each cluster, get the mean gradient for each regular distance
     for i, cl in enumerate(clusters):
@@ -234,22 +242,31 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         this_df = cluster_df[cluster_df.cluster_id == cl]
         these_sources = this_df.id.unique()
 
-        all_df =  df[df['id'].isin(these_sources)]
+        all_df = df[df['id'].isin(these_sources)]
+        # filter using the threshold drainage area
+        filter_df = all_df[all_df['drainage_area'] > area_t]
 
         # calculate the channel steepness
-        area = all_df['drainage_area'][all_df['drainage_area'] > 1000].values
-        med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(all_df['slope'], area)
-        #print(med_slopes)
-        # print(iqr_slopes)
+        area = filter_df['drainage_area'].values
+        med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(filter_df['slope'], area, nbins=nbins)
 
-        #print(log_slope)
+        # nan checking
+        bin_centres = [x for i, x in enumerate(bin_centres) if not np.isnan(med_slopes[i])]
+        lower_per = [x for i, x in enumerate(lower_per) if not np.isnan(med_slopes[i])]
+        upper_per = [x for i, x in enumerate(upper_per) if not np.isnan(med_slopes[i])]
+        med_slopes = [x for x in med_slopes if not np.isnan(x)]
+
         gradient, intercept, r, p, std = stats.linregress(bin_centres, med_slopes)
         print(intercept)
         intercept = float(10**intercept)
         print("Steepness index: {}".format(intercept))
         print("concavity: {}".format(gradient))
-        x2 = np.linspace(1,area.max(),100)
+        print("standard error:{}".format(std))
+        x2 = np.linspace(area_t-300,filter_df['drainage_area'].max()+1000,100)
         y2 = intercept*x2**(gradient)
+
+        # normalised channel steepness
+        ksn = 
 
         # transform binned data into normal for plotting
         med_slopes = np.array([10**x for x in med_slopes])
@@ -262,98 +279,25 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         # get the colour from the dataframe
         this_colour = str(this_df.colour.unique()[0])
         ax[i].grid(color='0.8', linestyle='--', which='both')
-        ax[i].scatter(area, all_df['slope'].values, color=this_colour, s=1)
+        ax[i].scatter(filter_df['drainage_area'], filter_df['slope'], color=this_colour, s=1)
         ax[i].errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='w', mec='k', zorder=3, c='k')
         # ax[i].scatter(med_areas, med_slopes, color='w',zorder=3, s=20, marker='D', edgecolors='k')
         ax[i].plot(x2, y2, "--", c='k')
         ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        #ax[i].set_xlim(900,10000)
-        ax[i].set_ylim(0.0001, 10)
-        ax[i].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,4), round(abs(gradient),2)), fontsize=16)
+        ax[i].set_xlim(area_t-300,)
+        ax[i].set_ylim(0.001, 10)
+        ax[i].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,2), round(abs(gradient),2)), fontsize=16)
 
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)', fontsize=14)
     plt.ylabel('Gradient (m/m)', labelpad=15, fontsize=14)
-    plt.subplots_adjust(left=0.15, hspace=0.3)
-
-    # save and clear the figure
-    plt.savefig(OutDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
-    plt.clf()
-    plt.cla()
-    plt.close()
-
-def PlotSlopeArea(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
-    """
-    Make a summary plot showing the S-A plot for each cluster. Only the data from
-    the profiles that were included in the clustering.
-
-    Author: FJC
-    """
-    cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
-
-    # find out some info
-    clusters = cluster_df.cluster_id.unique()
-    clusters.sort()
-    sources = cluster_df.id.unique()
-
-    # set up a figure
-    fig,ax = plt.subplots(nrows=len(clusters),ncols=1, figsize=(5,8), sharex=False, sharey=False)
-    # make a big subplot to allow sharing of axis labels
-    fig.add_subplot(111, frameon=False)
-    # hide tick and tick label of the big axes
-    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-
-    # for each cluster, get the mean gradient for each regular distance
-    for i, cl in enumerate(clusters):
-
-        # find out which sources are in the full df since we want to plot the full profiles for each cluster.
-        this_df = cluster_df[cluster_df.cluster_id == cl]
-
-        # calculate the channel steepness
-        area = this_df['drainage_area'].values
-        nbins=10
-        med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(this_df['slope'], area, nbins)
-        # print(iqr_slopes)
-
-        #print(log_slope)
-        gradient, intercept, r, p, std = stats.linregress(bin_centres, med_slopes)
-        print(intercept)
-        intercept = float(10**intercept)
-        print("Steepness index: {}".format(intercept))
-        print("concavity: {}".format(gradient))
-        x2 = np.linspace(1,8000,100)
-        y2 = intercept*x2**(gradient)
-
-        # transform binned data into normal for plotting
-        med_slopes = np.array([10**x for x in med_slopes])
-        med_areas = np.array([10**x for x in bin_centres])
-        lower_per = np.array([10**x for x in lower_per])
-        upper_per = np.array([10**x for x in upper_per])
-        upper_err = upper_per - med_slopes
-        lower_err = med_slopes - lower_per
-
-        # get the colour from the dataframe
-        this_colour = str(this_df.colour.unique()[0])
-        ax[i].grid(color='0.8', linestyle='--', which='both')
-        ax[i].scatter(area, this_df['slope'].values, color=this_colour, s=1)
-        ax[i].errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='w', mec='k', zorder=3, c='k')
-        # ax[i].scatter(med_areas, med_slopes, color='w',zorder=3, s=20, marker='D', edgecolors='k')
-        ax[i].plot(x2, y2, "--", c='k')
-        ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
-        ax[i].set_xscale('log')
-        ax[i].set_yscale('log')
-        ax[i].set_xlim(900,7000)
-        ax[i].set_ylim(0.001, 1)
-        ax[i].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,4), round(abs(gradient),2)), fontsize=14)
-
-
-    # set axis labels
-    plt.xlabel('Drainage area (m$^2$)', fontsize=14)
-    plt.ylabel('Gradient (m/m)', labelpad=15, fontsize=14)
-    plt.subplots_adjust(left=0.15, hspace=0.3)
+    if orientation=='horizontal':
+        plt.subplots_adjust(bottom=0.15)
+    else:
+        plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
     plt.savefig(OutDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
@@ -379,14 +323,16 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     # hide tick and tick label of the big axes
     #plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
+    filter_df = df[df['drainage_area'] > 1000]
     # calculate the channel steepness
-    area = df['drainage_area'].values
-    med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(df['slope'], area)
+    area = filter_df['drainage_area'].values
+    med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(filter_df['slope'], area)
     gradient, intercept, r, p, std = stats.linregress(bin_centres, med_slopes)
     intercept = float(10**intercept)
     print("Steepness index: {}".format(intercept))
     print("concavity: {}".format(gradient))
-    x2 = np.linspace(1,area.max(),100)
+    print("standard error:{}".format(std))
+    x2 = np.linspace(700,filter_df['drainage_area'].max()+1000,100)
     y2 = intercept*x2**(gradient)
 
     # transform binned data into normal for plotting
@@ -400,15 +346,15 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
 
     # LEFT - slope area plot
     ax[0].grid(color='0.8', linestyle='--', which='both', zorder=1)
-    ax[0].scatter(area, df['slope'].values, color='0.5', s=1, zorder=2)
+    ax[0].scatter(filter_df['drainage_area'], filter_df['slope'], color='0.5', s=1, zorder=2)
     ax[0].errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='r', mec='k', zorder=3, c='k')
     ax[0].plot(x2, y2, "--", c='k')
     #ax[0].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[0][i].transAxes,fontsize=12)
     ax[0].set_xscale('log')
     ax[0].set_yscale('log')
-    #ax[0].set_xlim(900,10000)
+    ax[0].set_xlim(700,)
     ax[0].set_ylim(0.0001, 10)
-    ax[0].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,4), round(abs(gradient),2)), fontsize=14)
+    ax[0].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,2), round(abs(gradient),2)), fontsize=14)
 
 
     # set axis labels
@@ -574,6 +520,13 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     # read the csv and get some info
     df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
     colors = df['colour'].unique()
+
+    print("========SOME CLUSTER STATISTICS=========")
+    clusters = df['cluster_id'].unique()
+    for cl in clusters:
+        this_df = df[df['cluster_id'] == cl]
+        print("Cluster {}, median gradient = {}".format(cl, this_df['slope'].median()))
+    print("========================================")
 
     # set props for fliers
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,

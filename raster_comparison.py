@@ -102,6 +102,44 @@ def BoxPlotGradient(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
     plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
     plt.clf()
 
+def GetLithologyPercentages(DataDirectory, fname_prefix, raster_name):
+    """
+    Get the percentage of the nodes in each cluster that drain each lithology
+    """
+    # read in the raster
+    raster_ext = '.bil'
+    this_raster = IO.ReadRasterArrayBlocks(DataDirectory+raster_name)
+    EPSG_string = IO.GetUTMEPSG(DataDirectory+raster_name)
+    NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(DataDirectory+raster_name)
+    CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(DataDirectory+raster_name)
+
+    pts = PT.LSDMap_PointData(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order),data_type ='csv')
+    easting, northing = pts.GetUTMEastingNorthing(EPSG_string=EPSG_string)
+    cluster_id = pts.QueryData('cluster_id', PANDEX=True)
+    clusters = list(set(cluster_id))
+
+    # dict for the data
+    data = {k: [] for k in clusters}
+    for x, (i, j) in enumerate(zip(northing, easting)):
+    # convert to rows and cols
+        X_coordinate_shifted_origin = j - XMin;
+        Y_coordinate_shifted_origin = i - YMin;
+
+        col_point = int(X_coordinate_shifted_origin/CellSize);
+        row_point = (ysize - 1) - int(round(Y_coordinate_shifted_origin/CellSize));
+        # check for data at this cell
+        this_value = this_raster[row_point][col_point]
+        if not np.isnan(this_value):
+            data[cluster_id[x]].append(this_value)
+
+    print(data)
+
+    # you have the values. now what percentage are each?
+    for key, liths in data.items():
+        
+
+
+
 DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM'
