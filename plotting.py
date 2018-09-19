@@ -219,6 +219,14 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
+    # we need to add the cluster ID into the full dataframe
+    for i,id in enumerate(sources):
+        this_id = cluster_df[cluster_df.id==id].iloc[0]['cluster_id']
+        df.loc[df.id==id, 'cluster_id'] = this_id
+
+    # now group by the node id and remove any nodes which identify as multiple clusters
+    df = df.groupby('id').filter(lambda x: x['cluster_id'].nunique() > 1)
+
     # for each cluster, get the mean gradient for each regular distance
     for i, cl in enumerate(clusters):
 
