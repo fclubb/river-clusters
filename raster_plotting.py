@@ -48,7 +48,7 @@ def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
         BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
 
     MF = MapFigure(HSName, DataDirectory,coord_type="UTM",colourbar_location = cbar_loc)
-    MF.add_drape_image(BackgroundRasterName,DataDirectory,colourmap = 'gray', alpha=0.8, colorbarlabel = "Elevation (m)",colour_min_max = custom_cbar_min_max)
+    MF.add_drape_image(BackgroundRasterName,DataDirectory,colourmap = 'gray', alpha=0.5, colorbarlabel = "Elevation (m)",colour_min_max = custom_cbar_min_max)
 
     # # create the map figure
     # MF = MapFigure(BackgroundRasterName, DataDirectory,coord_type="UTM",colour_min_max = custom_cbar_min_max)
@@ -64,7 +64,7 @@ def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
         ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
         MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
 
-    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_elev_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
+    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_elev_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False, axis_style='Thin') # Save the figure
 
 def PlotHillshadewithClusters(DataDirectory, OutDirectory, fname_prefix,stream_order=1):
         """
@@ -211,12 +211,12 @@ def PlotRasterLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, s
         for cl in clusters:
             # plot the whole channel network in black
             ChannelPoints = LSDP.LSDMap_PointData(df, data_type="pandas", PANDEX = True)
-            MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='white',manual_size=1, zorder=2, alpha=0.5)
+            MF.add_point_data(ChannelPoints,show_colourbar="False", unicolor='white',manual_size=1.5, zorder=2, alpha=0.5)
             # plot the clustered profiles in the correct colour
             this_df = cluster_df[cluster_df.cluster_id == cl]
             this_colour = str(this_df.colour.unique()[0])
             ClusteredPoints = LSDP.LSDMap_PointData(this_df, data_type = "pandas", PANDEX = True)
-            MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2)
+            MF.add_point_data(ClusteredPoints,show_colourbar="False",zorder=100, unicolor=this_colour,manual_size=2.5)
 
         MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = OutDirectory+fname_prefix+'_lith_clusters_SO{}.png'.format(stream_order), FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 

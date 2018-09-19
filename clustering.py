@@ -428,8 +428,9 @@ def ClusterProfilesVaryingLength(DataDirectory, OutDirectory, fname_prefix, df, 
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
-    colors = pl.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
-    threshold_color = '#377eb8'
+    #colors = pl.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
+    colors = ['#e41a1c', '#377eb8', '#000000']
+    threshold_color = '#A9A9A9'
     clusters = df['cluster_id'].unique()
 
     # max_df = df.sort_values('distance_from_outlet', ascending=False).drop_duplicates(['cluster_id'])
@@ -445,8 +446,8 @@ def ClusterProfilesVaryingLength(DataDirectory, OutDirectory, fname_prefix, df, 
 
     source_ids = df['id'].unique()
 
-    plt.title('Hierarchical Clustering Dendrogram')
-    plt.ylabel('distance')
+    #plt.title('Hierarchical Clustering Dendrogram')
+    plt.ylabel('$d_R$', fontsize=14)
     R = dendrogram(ln, color_threshold=thr+0.00001, above_threshold_color=threshold_color,no_labels=True)
 
     plt.axhline(y = thr, color = 'r', ls = '--')
