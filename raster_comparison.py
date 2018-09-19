@@ -102,10 +102,11 @@ def BoxPlotGradient(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
     plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
     plt.clf()
 
-def GetLithologyPercentages(DataDirectory, fname_prefix, raster_name):
+def GetLithologyPercentages(DataDirectory, OutDirectory, fname_prefix, raster_name, stream_order=1):
     """
     Get the percentage of the nodes in each cluster that drain each lithology
     """
+    from collections import Counter
     # read in the raster
     raster_ext = '.bil'
     this_raster = IO.ReadRasterArrayBlocks(DataDirectory+raster_name)
@@ -132,17 +133,18 @@ def GetLithologyPercentages(DataDirectory, fname_prefix, raster_name):
         if not np.isnan(this_value):
             data[cluster_id[x]].append(this_value)
 
-    print(data)
-
     # you have the values. now what percentage are each?
     for key, liths in data.items():
-        
+        c = Counter(liths)
+        n_ndv = c[0.0]
+        print(c)
+        [print(x,": ",vals/len(liths) * 100) for x, vals in c.items()]
 
 
 
-DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
+DataDirectory = '/home/fiona/OneDrive/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM'
-raster_name = 'pozo_geol_WGS84_reclass.tif'
+raster_name = 'pozo_geol_WGS84_new_padded.bil'
 # BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1)
-BoxPlotGradient(DataDirectory,OutDirectory,fname_prefix,stream_order=1)
+GetLithologyPercentages(DataDirectory,OutDirectory,fname_prefix,raster_name,stream_order=1)

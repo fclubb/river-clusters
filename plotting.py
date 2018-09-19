@@ -158,44 +158,23 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
         # get the colour from the dataframe
         this_colour = str(cluster_df.colour.unique()[0])
         ax.grid(color='0.8', linestyle='--', which='both')
-        ax.plot(dist_array,median_gradients,color=this_colour, lw=1)
+        ax.plot(dist_array,median_gradients,color=this_colour, lw=1, label='Median + IQR')
         ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
         #ax.set_ylim(0,0.4)
-        #ax.text(0.9, 0.8,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax.transAxes,fontsize=8)
 
     # set axis labels
     plt.xlabel('Distance from source (m)', labelpad=5, fontsize=14)
     plt.ylabel('Gradient (m/m)', labelpad=10, fontsize=14)
     plt.subplots_adjust(bottom=0.2, left=0.15)
 
+    # add legend
+    ax.legend(loc='upper right')
+
     # save and clear the figure
     plt.savefig(OutDirectory+fname_prefix+('_profiles_median_SO{}.png'.format(stream_order)), dpi=300)
     plt.clf()
     plt.cla()
     plt.close()
-
-    # # set up a figure
-    # fig = plt.figure(1, facecolor='white',figsize=(4.92126,3.2))
-    # gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    # ax = fig.add_subplot(gs[5:100,10:95])
-    #
-    # # for each cluster, get the mean gradient for each regular distance
-    # for cl in clusters:
-    #     cluster_df = df[df.cluster_id == cl]
-    #     median_elevs = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.median() for x in dist_array])
-    #     lower_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.quantile(0.25) for x in dist_array])
-    #     upper_quantile = np.asarray([cluster_df[cluster_df.reg_dist == x].elevation.quantile(0.75) for x in dist_array])
-    #     # get the colour from the dataframe
-    #     this_colour = str(cluster_df.colour.unique()[0])
-    #     ax.grid(color='0.8', linestyle='--', which='both')
-    #     ax.plot(dist_array,median_elevs,color=this_colour, lw=1)
-    #     ax.fill_between(dist_array, lower_quantile, upper_quantile, facecolor=this_colour, alpha=0.2)
-    #
-    # ax.set_xlabel('Distance from outlet (m)')
-    # ax.set_ylabel('Elevation (m)')
-    #
-    # plt.savefig(OutDirectory+fname_prefix+('_profiles_median_elev_SO{}.png'.format(stream_order)), dpi=300)
-    # plt.clf()
 
 def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1, orientation='vertical', ref_theta=0.45, nbins=20, area_t = 1000):
     """
@@ -266,7 +245,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         y2 = intercept*x2**(gradient)
 
         # normalised channel steepness
-        ksn = 
+        #ksn =
 
         # transform binned data into normal for plotting
         med_slopes = np.array([10**x for x in med_slopes])
