@@ -5,6 +5,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib import rcParams
 from scipy import stats
+import statsmodels.api as sm
 
 # Set up fonts for plots
 label_size = 10
@@ -168,7 +169,7 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
     plt.subplots_adjust(bottom=0.2, left=0.15)
 
     # add legend
-    ax.legend(loc='upper right')
+    #ax.legend(loc='upper right')
 
     # save and clear the figure
     plt.savefig(OutDirectory+fname_prefix+('_profiles_median_SO{}.png'.format(stream_order)), dpi=300)
@@ -235,17 +236,23 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         upper_per = [x for i, x in enumerate(upper_per) if not np.isnan(med_slopes[i])]
         med_slopes = [x for x in med_slopes if not np.isnan(x)]
 
-        gradient, intercept, r, p, std = stats.linregress(bin_centres, med_slopes)
-        print(intercept)
-        intercept = float(10**intercept)
-        print("Steepness index: {}".format(intercept))
-        print("concavity: {}".format(gradient))
-        print("standard error:{}".format(std))
-        x2 = np.linspace(area_t-300,filter_df['drainage_area'].max()+1000,100)
-        y2 = intercept*x2**(gradient)
+        # linear regression using statsmodels
+        # include constant in ols models, which is not done by default
+        x = sm.add_constant(bin_centres)
 
-        # normalised channel steepness
-        #ksn =
+        # ordinary least squares
+        model = sm.OLS(med_slopes,x)
+        results = model.fit()
+
+        # now get the coefficients
+        intercept = results.params[0]
+        gradient = results.params[1]
+        intercept_err = results.bse[0]
+        gradient_err = results.bse[1]
+        intercept = float(10**intercept)
+        intercept_err = float(10**intercept_err)
+        print('Intercept: {}'.format(intercept))
+        print('Gradient: {}'.format(gradient))
 
         # transform binned data into normal for plotting
         med_slopes = np.array([10**x for x in med_slopes])
@@ -255,6 +262,12 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         upper_err = upper_per - med_slopes
         lower_err = med_slopes - lower_per
 
+        # arrays for plotting the regression line
+        x2 = np.linspace(np.min(med_areas),np.max(med_areas),100)
+        y2 = intercept*x2**(gradient)
+
+        print(len(med_areas), len(med_slopes))
+
         # get the colour from the dataframe
         this_colour = str(this_df.colour.unique()[0])
         ax[i].grid(color='0.8', linestyle='--', which='both')
@@ -262,13 +275,12 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         ax[i].errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='w', mec='k', zorder=3, c='k')
         # ax[i].scatter(med_areas, med_slopes, color='w',zorder=3, s=20, marker='D', edgecolors='k')
         ax[i].plot(x2, y2, "--", c='k')
-        ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
+        # ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
         ax[i].set_xlim(area_t-300,)
-        ax[i].set_ylim(0.001, 10)
-        ax[i].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,2), round(abs(gradient),2)), fontsize=16)
-
+        ax[i].set_ylim(0.001, 1)
+        ax[i].set_title('Cluster {}: $k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(int(cl), round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=12)
 
     # set axis labels
     plt.xlabel('Drainage area (m$^2$)', fontsize=14)
@@ -297,22 +309,29 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
 
     # set up a figure
     fig,ax = plt.subplots(nrows=1,ncols=2, figsize=(10,4.5), sharex=False, sharey=False)
-    # make a big subplot to allow sharing of axis labels
-    #fig.add_subplot(111, frameon=False)
-    # hide tick and tick label of the big axes
-    #plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
     filter_df = df[df['drainage_area'] > 1000]
     # calculate the channel steepness
     area = filter_df['drainage_area'].values
     med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(filter_df['slope'], area)
-    gradient, intercept, r, p, std = stats.linregress(bin_centres, med_slopes)
+
+    # linear regression using statsmodels
+    # include constant in ols models, which is not done by default
+    x = sm.add_constant(bin_centres)
+
+    # ordinary least squares
+    model = sm.OLS(med_slopes,x)
+    results = model.fit()
+
+    # now get the coefficients
+    intercept = results.params[0]
+    gradient = results.params[1]
+    intercept_err = results.bse[0]
+    gradient_err = results.bse[1]
     intercept = float(10**intercept)
-    print("Steepness index: {}".format(intercept))
-    print("concavity: {}".format(gradient))
-    print("standard error:{}".format(std))
-    x2 = np.linspace(700,filter_df['drainage_area'].max()+1000,100)
-    y2 = intercept*x2**(gradient)
+    intercept_err = float(10**intercept_err)
+    print('Intercept: {}'.format(intercept))
+    print('Gradient: {}'.format(gradient))
 
     # transform binned data into normal for plotting
     med_slopes = np.array([10**x for x in med_slopes])
@@ -322,6 +341,9 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     upper_err = upper_per - med_slopes
     lower_err = med_slopes - lower_per
 
+    # arrays for plotting the regression line
+    x2 = np.linspace(np.min(med_areas),np.max(med_areas),100)
+    y2 = intercept*x2**(gradient)
 
     # LEFT - slope area plot
     ax[0].grid(color='0.8', linestyle='--', which='both', zorder=1)
@@ -333,7 +355,7 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     ax[0].set_yscale('log')
     ax[0].set_xlim(700,)
     ax[0].set_ylim(0.0001, 10)
-    ax[0].set_title('$k_s$ = {}; $\\theta$ = {}'.format(round(intercept,2), round(abs(gradient),2)), fontsize=14)
+    ax[0].set_title('$k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=14)
 
 
     # set axis labels
@@ -524,18 +546,21 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
         for i,cp in enumerate(row['caps']):
             if i%2==0:
                 j+=1
-            cp.set(color=colors[j])
+            # cp.set(color=colors[j])
+            cp.set(color='k')
         j=-1
         for i,wh in enumerate(row['whiskers']):
             if i%2==0:
                 j+=1
-            wh.set_color(colors[j])
+            # wh.set_color(colors[j])
+            wh.set_color('k')
         for i,box in enumerate(row['boxes']):
             box.set_facecolor(colors[i])
             box.set_alpha(0.7)
-            box.set_edgecolor(colors[i])
+            # box.set_edgecolor(colors[i])
+            box.set_edgecolor('k')
         for i,med in enumerate(row['medians']):
-            med.set(color=colors[i])
+            med.set(color='k')
         for i,pt in enumerate(row['fliers']):
             pt.set_markeredgecolor(colors[i])
 

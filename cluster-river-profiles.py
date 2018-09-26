@@ -121,11 +121,11 @@ if __name__ == '__main__':
         # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
         # # if args.geol_raster:
         # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
-        # pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='horizontal', nbins=20)
-        pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        # pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
+        # pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        #pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
-        pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+        # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
+        # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
     if args.geol_raster:
         #rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
         rpl.PlotRasterLithologyWithClusters(DataDirectory, DataDirectory, args.fname_prefix, args.stream_order, args.geol_raster)
