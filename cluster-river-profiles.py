@@ -123,12 +123,20 @@ if __name__ == '__main__':
         # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
         # pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
         # pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        #pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+        # print the nodes to csv for the catchment analysis
+        #cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
     if args.geol_raster:
         #rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
         rpl.PlotRasterLithologyWithClusters(DataDirectory, DataDirectory, args.fname_prefix, args.stream_order, args.geol_raster)
+
+    # plot the catchment metrics
+    new_dir = DataDirectory+'threshold_0/'
+    pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+
+
 
     print('Enjoy your clusters, pal')
 

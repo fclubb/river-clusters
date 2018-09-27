@@ -574,3 +574,84 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     plt.subplots_adjust(left=0.2)
     plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
     plt.clf()
+
+def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
+    """
+    Make a boxplot showing the channel gradient stats for each cluster
+    """
+
+    # read the csv and get some info
+    df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
+    colors = df['colour'].unique()
+
+    # master dataframe for the catchment info
+    master_df = pd.DataFrame()
+    # loop through the clusters and read the csv with the catchment info
+    clusters = df.cluster_id.unique()
+    for cl in clusters:
+        catch_df = pd.read_csv(OutDirectory+fname_prefix+"_catchment_info_SO{}_CL{}.csv".format(stream_order, int(cl)))
+        catch_df["cluster_id"] = cl
+        master_df = master_df.append(catch_df)
+
+    # set props for fliers
+    flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
+                  linestyle='none', markeredgecolor='k')
+
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+    axes = axes.ravel()
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+
+    col_keys = ['relief', 'mean_slope']
+    labels = ['Catchment relief (m)', 'Catchment gradient (m/m)']
+    for i, this_ax in enumerate(axes):
+
+        this_ax.set_ylabel(labels[i])
+        this_ax.set_xlabel('')
+        # make the boxplot and return the dict with the boxplot properties
+        bp_dict = master_df.boxplot(column=col_keys[i], by=['cluster_id'], return_type='both', patch_artist=True, flierprops=flierprops, ax=this_ax)
+        # make the median lines black
+        #[[item.set_color('k') for item in bp_dict[key]['medians']] for key in bp_dict.keys()]
+
+        # change the colours based on the cluster ID
+        for row_key, (ax,row) in bp_dict.iteritems():
+            ax.set_title('')
+            this_ax.set_xlabel('')
+            j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
+            for i,cp in enumerate(row['caps']):
+                if i%2==0:
+                    j+=1
+                # cp.set(color=colors[j])
+                cp.set(color='k')
+            j=-1
+            for i,wh in enumerate(row['whiskers']):
+                if i%2==0:
+                    j+=1
+                # wh.set_color(colors[j])
+                wh.set_color('k')
+            for i,box in enumerate(row['boxes']):
+                box.set_facecolor(colors[i])
+                box.set_alpha(0.7)
+                # box.set_edgecolor(colors[i])
+                box.set_edgecolor('k')
+            for i,med in enumerate(row['medians']):
+                med.set(color='k')
+            for i,pt in enumerate(row['fliers']):
+                pt.set_markeredgecolor(colors[i])
+
+
+        ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
+        plt.subplots_adjust(wspace=0.3)
+        # labels = ["Cluster {}".format(int(x)) for x in df.cluster_id.unique()]
+        # ax.set_xticklabels(labels, fontsize=14)
+        #print(boxplot)
+    plt.suptitle('')
+    plt.xlabel('Cluster number')
+
+        # ax.set_ylabel('Catchment relief (m)', fontsize=14)
+
+    # plt.subplots_adjust(left=0.2)
+    plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot.png', dpi=300)
+    plt.clf()

@@ -766,3 +766,17 @@ def RemoveNonUniqueProfiles(df):
     df_new = df[~df['id'].isin(duplicate_sources)]
     return df_new
 #---------------------
+
+def PrintJunctionsToCSV(DataDirectory, fname_prefix, stream_order=1):
+    """
+    print a list of the downstream junction of the channels in each cluster
+    for extracting the catchments using lsdtopotools
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    clusters = df.cluster_id.unique()
+
+    for cl in clusters:
+        this_df = df[df.cluster_id == cl]
+        sources = this_df.id.unique()
+        ds_nodes = this_df.loc[this_df.groupby('id')['reg_dist'].idxmax()]
+        ds_nodes.to_csv(DataDirectory+fname_prefix+'_junctions_SO{}_CL{}.csv'.format(stream_order, int(cl)), index=False)
