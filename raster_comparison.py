@@ -4,8 +4,14 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from osgeo import ogr
+from shapely.geometry import shape, Polygon
+from descartes.patch import PolygonPatch
+import matplotlib.cm as cm
+import LSDPlottingTools as LSDP
 from LSDPlottingTools import LSDMap_GDALIO as IO
 from LSDPlottingTools import LSDMap_PointTools as PT
+import os
 
 def BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1):
     """
@@ -140,11 +146,85 @@ def GetLithologyPercentages(DataDirectory, OutDirectory, fname_prefix, raster_na
         print(c)
         [print(x,": ",vals/len(liths) * 100) for x, vals in c.items()]
 
+def ReadBasinPolygons(DataDirectory, OutDirectory, raster_name):
+    """
+    Read in the basin polygons
+    """
+    import shapefile
+
+    #ax.set_aspect('equal')
+
+    # check if the shapefile exists
+    shpfile = raster_name+'.shp'
+    if not os.path.isfile(OutDirectory+shpfile):
+        print("Polygonising the basin raster...")
+        # read in the raster
+        raster_ext = '.bil'
+        polygons = IO.PolygoniseRaster(OutDirectory, raster_name+raster_ext, raster_name)
+        polygons = list(polygons.values())
+
+    else:
+        # read in the shapefile
+        sf  = shapefile.Reader(OutDirectory+shpfile)
+        # shape = file.GetLayer(0)
+
+        polygons = []
+        for s in list(sf.iterShapes()):
+            nparts = len(s.parts) # total parts
+            if nparts == 1:
+               polygon = Polygon(s.points)
+               polygons.append(polygon)
+
+            else: # loop over parts of each shape, plot separately
+              for ip in range(nparts): # loop over parts, plot separately
+                  i0=s.parts[ip]
+                  if ip < nparts-1:
+                     i1 = s.parts[ip+1]-1
+                  else:
+                     i1 = len(s.points)
+
+                  polygon = Polygon(s.points[i0:i1+1])
+                  polygons.append(polygon)
+
+    return polygons
+
+def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_name, stream_order=1):
+    """
+    Read in the basins and plot them over a hillshade coloured by their cluster ID
+    """
+
+    df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    clusters = df.cluster_id.unique()
+
+    # make a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.1,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,5:100])
+
+    # plot the raster
+    hs_raster = IO.ReadRasterArrayBlocks(DataDirectory+fname_prefix+'_hs.bil')
+    extent = LSDP.GetRasterExtent(DataDirectory+fname_prefix+'_hs.bil')
+    plt.imshow(hs_raster, cmap=cm.gray, extent=extent)
+
+    means = {}
+    for i,cl in enumerate(clusters):
+        this_df = df[df.cluster_id == cl]
+        # get the polygons
+        polygons = ReadBasinPolygons(DataDirectory, OutDirectory, fname_prefix+'_basins_CL{}'.format(int(cl)))
+        for p in polygons:
+            #print(list(p.exterior.coords))
+            patch = PolygonPatch(p, facecolor=this_df.iloc[0]['colour'], alpha=1.0, zorder=2, lw=0.2)
+            ax.add_patch(patch)
+        #print(polygons)
+        # for each
+
+    plt.savefig(OutDirectory+'polygons.png', FigFormat='png', dpi=500)
 
 
-DataDirectory = '/home/fiona/OneDrive/river_clusters/Pozo/'
+DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM'
-raster_name = 'pozo_geol_WGS84_new_padded.bil'
+raster_name = 'Pozo_DTM_veg_height_avg.bil'
 # BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1)
-GetLithologyPercentages(DataDirectory,OutDirectory,fname_prefix,raster_name,stream_order=1)
+#GetLithologyPercentages(DataDirectory,OutDirectory,fname_prefix,raster_name,stream_order=1)
+GetMeanValueForPolygons(DataDirectory, OutDirectory, fname_prefix, raster_name)

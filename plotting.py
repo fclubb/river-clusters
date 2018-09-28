@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib import rcParams
@@ -8,9 +9,9 @@ from scipy import stats
 import statsmodels.api as sm
 
 # Set up fonts for plots
-label_size = 10
-rcParams['font.family'] = 'sans-serif'
-rcParams['font.sans-serif'] = ['arial']
+label_size = 12
+#rcParams['font.family'] = 'sans-serif'
+#rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
 
 def list_of_hex_colours(N, base_cmap):
@@ -579,6 +580,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     """
     Make a boxplot showing the channel gradient stats for each cluster
     """
+    mpl.rcParams['ytick.labelsize'] = 8
 
     # read the csv and get some info
     df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
@@ -593,19 +595,44 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         catch_df["cluster_id"] = cl
         master_df = master_df.append(catch_df)
 
+    # Do some stats, yo
+    # KS test to see if we can distinguish the distributions at a confidence level of p = 0.05
+    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.kstest.html
+    ks_dict = {}
+    # relief
+    lists = master_df.groupby('cluster_id')['relief'].apply(np.asarray)
+    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    print(d, p)
+    ks_dict[0] = [d, p]
+    # slope
+    lists = master_df.groupby('cluster_id')['mean_slope'].apply(np.asarray)
+    results = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    print(d, p)
+    ks_dict[1] = [d, p]
+    # curvature
+    lists = master_df.groupby('cluster_id')['plan_curv'].apply(np.asarray)
+    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    print(d, p)
+    ks_dict[2] = [d, p]
+    # veg_height
+    lists = master_df.groupby('cluster_id')['veg_height'].apply(np.asarray)
+    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    print(d, p)
+    ks_dict[3] = [d, p]
+
     # set props for fliers
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
                   linestyle='none', markeredgecolor='k')
 
-    fig, axes = plt.subplots(nrows=1, ncols=2)
+    fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(12,5))
     axes = axes.ravel()
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    col_keys = ['relief', 'mean_slope']
-    labels = ['Catchment relief (m)', 'Catchment gradient (m/m)']
+    col_keys = ['relief', 'mean_slope', 'plan_curv', 'veg_height']
+    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)', 'Vegetation height (cm)']
     for i, this_ax in enumerate(axes):
 
         this_ax.set_ylabel(labels[i])
@@ -617,7 +644,11 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
 
         # change the colours based on the cluster ID
         for row_key, (ax,row) in bp_dict.iteritems():
-            ax.set_title('')
+            if ks_dict[i][1] < 0.01:
+                ks_dict[i][1] = '$p$ < 0.01'
+            else:
+                ks_dict[i][1] = '$p$ = {}'.format(round(ks_dict[i][1]),4)
+            ax.set_title('$D$ = {}, {}'.format(round(ks_dict[i][0], 2), ks_dict[i][1]), fontsize=8)
             this_ax.set_xlabel('')
             j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
             for i,cp in enumerate(row['caps']):
@@ -643,9 +674,9 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
 
 
         ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
-        plt.subplots_adjust(wspace=0.3)
-        # labels = ["Cluster {}".format(int(x)) for x in df.cluster_id.unique()]
-        # ax.set_xticklabels(labels, fontsize=14)
+        plt.subplots_adjust(wspace=0.45,left=0.08,right=0.95)
+        x_labels = [str((int(x))) for x in df.cluster_id.unique()]
+        ax.set_xticklabels(x_labels, fontsize=12)
         #print(boxplot)
     plt.suptitle('')
     plt.xlabel('Cluster number')
