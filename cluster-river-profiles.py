@@ -115,22 +115,23 @@ if __name__ == '__main__':
             os.makedirs(new_dir)
         # cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
         # pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
+        # # rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
         # rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # # if args.shp:
-        # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-        # # if args.geol_raster:
-        # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
+        # # # if args.shp:
+        # # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+        # # # if args.geol_raster:
+        # # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
         # pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
         # pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        #pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
-        # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-        # print the nodes to csv for the catchment analysis
-        #cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
+        # pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        # # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
+        # # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+        # # print the nodes to csv for the catchment analysis
+        # cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
     if args.geol_raster:
         #rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
         rpl.PlotRasterLithologyWithClusters(DataDirectory, DataDirectory, args.fname_prefix, args.stream_order, args.geol_raster)
+
 
     # plot the catchment metrics
     new_dir = DataDirectory+'threshold_0/'

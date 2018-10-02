@@ -606,7 +606,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     ks_dict[0] = [d, p]
     # slope
     lists = master_df.groupby('cluster_id')['mean_slope'].apply(np.asarray)
-    results = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     print(d, p)
     ks_dict[1] = [d, p]
     # curvature
@@ -615,7 +615,12 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     print(d, p)
     ks_dict[2] = [d, p]
     # veg_height
-    lists = master_df.groupby('cluster_id')['veg_height'].apply(np.asarray)
+    # lists = master_df.groupby('cluster_id')['veg_height'].apply(np.asarray)
+    # d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    # print(d, p)
+    # ks_dict[3] = [d, p]
+    # drainage density
+    lists = master_df.groupby('cluster_id')['drainage_density'].apply(np.asarray)
     d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     print(d, p)
     ks_dict[3] = [d, p]
@@ -631,8 +636,8 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    col_keys = ['relief', 'mean_slope', 'plan_curv', 'veg_height']
-    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)', 'Vegetation height (cm)']
+    col_keys = ['relief', 'mean_slope', 'plan_curv', 'drainage_density']
+    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)', 'Drainage density (km/km$^2$)']
     for i, this_ax in enumerate(axes):
 
         this_ax.set_ylabel(labels[i])
@@ -647,7 +652,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
             if ks_dict[i][1] < 0.01:
                 ks_dict[i][1] = '$p$ < 0.01'
             else:
-                ks_dict[i][1] = '$p$ = {}'.format(round(ks_dict[i][1]),4)
+                ks_dict[i][1] = '$p$ = {}'.format(round(ks_dict[i][1],2))
             ax.set_title('$D$ = {}, {}'.format(round(ks_dict[i][0], 2), ks_dict[i][1]), fontsize=8)
             this_ax.set_xlabel('')
             j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
@@ -684,5 +689,5 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         # ax.set_ylabel('Catchment relief (m)', fontsize=14)
 
     # plt.subplots_adjust(left=0.2)
-    plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot.png', dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
