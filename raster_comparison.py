@@ -188,7 +188,7 @@ def ReadBasinPolygons(DataDirectory, OutDirectory, raster_name):
 
     return polygons
 
-def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_name, stream_order=1):
+def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
     """
     Read in the basins and plot them over a hillshade coloured by their cluster ID
     """
@@ -210,7 +210,7 @@ def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_na
     for i,cl in enumerate(clusters):
         this_df = df[df.cluster_id == cl]
         # get the polygons
-        polygons = ReadBasinPolygons(DataDirectory, OutDirectory, fname_prefix+'_basins_CL{}'.format(int(cl)))
+        polygons = ReadBasinPolygons(DataDirectory, OutDirectory, fname_prefix+'_basins_SO{}_CL{}'.format(stream_order,int(cl)))
         for p in polygons:
             #print(list(p.exterior.coords))
             patch = PolygonPatch(p, facecolor=this_df.iloc[0]['colour'], alpha=1.0, zorder=2, lw=0.2)
@@ -221,10 +221,10 @@ def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_na
     plt.savefig(OutDirectory+'polygons.png', FigFormat='png', dpi=500)
 
 
-DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
+DataDirectory = '/home/clubb/OneDrive/river_clusters/Bitterroot_NF/'
 OutDirectory = DataDirectory+'threshold_0/'
-fname_prefix = 'Pozo_DTM'
+fname_prefix = 'Bitterroot_clip'
 raster_name = 'Pozo_DTM_veg_height_avg.bil'
 # BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1)
 #GetLithologyPercentages(DataDirectory,OutDirectory,fname_prefix,raster_name,stream_order=1)
-GetMeanValueForPolygons(DataDirectory, OutDirectory, fname_prefix, raster_name)
+PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_name,stream_order=2)

@@ -590,7 +590,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     master_df = pd.DataFrame()
     # loop through the clusters and read the csv with the catchment info
     clusters = df.cluster_id.unique()
-    for cl in clusters:
+    for i,cl in enumerate(clusters):
         catch_df = pd.read_csv(OutDirectory+fname_prefix+"_catchment_info_SO{}_CL{}.csv".format(stream_order, int(cl)))
         catch_df["cluster_id"] = cl
         master_df = master_df.append(catch_df)
@@ -620,26 +620,25 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     # print(d, p)
     # ks_dict[3] = [d, p]
     # drainage density
-    lists = master_df.groupby('cluster_id')['drainage_density'].apply(np.asarray)
-    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
-    print(d, p)
-    ks_dict[3] = [d, p]
+    # lists = master_df.groupby('cluster_id')['drainage_density'].apply(np.asarray)
+    # d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
+    # print(d, p)
+    # ks_dict[3] = [d, p]
 
     # set props for fliers
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
                   linestyle='none', markeredgecolor='k')
 
-    fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(12,5))
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(4,8))
     axes = axes.ravel()
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    col_keys = ['relief', 'mean_slope', 'plan_curv', 'drainage_density']
-    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)', 'Drainage density (km/km$^2$)']
+    col_keys = ['relief', 'mean_slope', 'plan_curv']
+    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)']
     for i, this_ax in enumerate(axes):
-
         this_ax.set_ylabel(labels[i])
         this_ax.set_xlabel('')
         # make the boxplot and return the dict with the boxplot properties
@@ -653,7 +652,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
                 ks_dict[i][1] = '$p$ < 0.01'
             else:
                 ks_dict[i][1] = '$p$ = {}'.format(round(ks_dict[i][1],2))
-            ax.set_title('$D$ = {}, {}'.format(round(ks_dict[i][0], 2), ks_dict[i][1]), fontsize=8)
+            ax.set_title('$D$ = {}, {}'.format(round(ks_dict[i][0], 2), ks_dict[i][1]), fontsize=10)
             this_ax.set_xlabel('')
             j=-1 #stupid thing because there are double the number of caps and whiskers compared to boxes
             for i,cp in enumerate(row['caps']):
@@ -679,7 +678,7 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
 
 
         ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
-        plt.subplots_adjust(wspace=0.45,left=0.08,right=0.95)
+        plt.subplots_adjust(wspace=0.3,left=0.25,right=0.9, hspace=0.35, bottom=0.1)
         x_labels = [str((int(x))) for x in df.cluster_id.unique()]
         ax.set_xticklabels(x_labels, fontsize=12)
         #print(boxplot)

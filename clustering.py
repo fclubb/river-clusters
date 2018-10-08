@@ -120,13 +120,6 @@ def ProfilesRegularDistance(DataDirectory, fname_prefix, df, profile_len = 1000,
     # create a new dataframe for storing the data about the selected profiles
     thinned_df = pd.DataFrame()
 
-    # make a plot of the gradient vs. distance from source aligned to the outlet with
-    # the resampled distance frame
-    # set up a figure
-    # fig = plt.figure(1, facecolor='white')
-    # gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
-    # ax = fig.add_subplot(gs[5:100,10:95])
-    #
     # loop through the profiles. For each point in the regularly spaced array,
     # find the index of the closest point in the distance array. Then use this to
     # assign the slope to the regularly spaced array
@@ -141,18 +134,9 @@ def ProfilesRegularDistance(DataDirectory, fname_prefix, df, profile_len = 1000,
         thinned_df.loc[(thinned_df['id'] == final_sources[i]), 'reg_dist'] = reg_dist
         data[i] = reg_slope
 
-        # plot this profile
-        # ax.plot(reg_dist[::-1], reg_slope, lw=1)
-
     # write the thinned_df to output in case we want to reload
     thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.csv',index=False)
     #
-    # # now save the figure
-    # ax.set_xlabel('Distance from source (m)')
-    # ax.set_ylabel('Gradient')
-    # plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist.png', dpi=300)
-    # plt.clf()
-
     return thinned_df, data
 
 def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, profile_len=4,step=2, slope_window_size=25):
@@ -253,15 +237,35 @@ def GetProfilesByStreamOrder(DataDirectory, fname_prefix, df,step=2,slope_window
 
     # only keep the nodes belonging to the corresponding stream order
     so_df = df[df['stream_order'] == stream_order]
+    longest_df = so_df
+
+    # if not first order streams then find the longest channel
+    if stream_order != 1:
+        # get a list of the first highest order node for checking
+        check_nodes = so_df.groupby(by='id').apply(lambda x: x.iloc[-1]['node']).tolist()
+
+        # now find the longest channel in the df that has this node in it
+        so_df = df[df['stream_order'] <= stream_order]
+        new_df = so_df.groupby(by='id')
+        longest_ids = []
+        # loop through each higher order node and find all the channel profiles that contain them
+        for node in check_nodes:
+            these_ids = new_df.apply(lambda x: x[x['node'] == node])['id'].tolist()   # get the ids that have this node in it
+            this_df = so_df[so_df['id'].isin(these_ids)]  # filter the SO dataframe to only these IDs
+            # now find the ID of the longest one
+            longest_ids.append(this_df.loc[this_df['distance_from_outlet'].idxmax()]['id'])
+        print(longest_ids)
+        longest_df = so_df[so_df['id'].isin(longest_ids)]
+
     #print so_df
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
-    source_ids = so_df['id'].unique()
+    source_ids = longest_df['id'].unique()
     print (source_ids)
     rows_list = []
     for i, source in enumerate(source_ids):
-        this_df = so_df[so_df['id'] == source]
+        this_df = longest_df[longest_df['id'] == source]
         # get the distances from the channel head
         distances = [this_df.distance_from_outlet.max()-x for x in this_df.distance_from_outlet]
     #    print distances

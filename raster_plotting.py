@@ -11,9 +11,19 @@ from LSDPlottingTools import LSDMap_GDALIO as IO
 from LSDPlottingTools import LSDMap_BasicManipulation as BM
 from LSDMapFigure import PlottingRaster
 import pandas as pd
+from shapely.geometry import shape, Polygon
+from descartes.patch import PolygonPatch
 import matplotlib.pyplot as plt
 import os
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+import matplotlib.cm as cm
+from matplotlib import rcParams
+
+# Set up fonts for plots
+label_size = 12
+#rcParams['font.family'] = 'sans-serif'
+#rcParams['font.sans-serif'] = ['arial']
+rcParams['font.size'] = label_size
 
 
 def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_order=1, cbar_loc='right', custom_cbar_min_max = []):
@@ -257,12 +267,93 @@ def PlotRasterLithology(DataDirectory, fname_prefix, geol_raster = 'geol'):
 
         MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_lith.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False) # Save the figure
 
+def ReadBasinPolygons(DataDirectory, OutDirectory, raster_name):
+    """
+    Read in the basin polygons
+    """
+    import shapefile
+
+    #ax.set_aspect('equal')
+
+    # check if the shapefile exists
+    shpfile = raster_name+'.shp'
+    if not os.path.isfile(OutDirectory+shpfile):
+        print("Polygonising the basin raster...")
+        # read in the raster
+        raster_ext = '.bil'
+        polygons = IO.PolygoniseRaster(OutDirectory, raster_name+raster_ext, raster_name)
+        polygons = list(polygons.values())
+
+    else:
+        # read in the shapefile
+        sf  = shapefile.Reader(OutDirectory+shpfile)
+        # shape = file.GetLayer(0)
+
+        polygons = []
+        for s in list(sf.iterShapes()):
+            nparts = len(s.parts) # total parts
+            if nparts == 1:
+               polygon = Polygon(s.points)
+               polygons.append(polygon)
+
+            else: # loop over parts of each shape, plot separately
+              for ip in range(nparts): # loop over parts, plot separately
+                  i0=s.parts[ip]
+                  if ip < nparts-1:
+                     i1 = s.parts[ip+1]-1
+                  else:
+                     i1 = len(s.points)
+
+                  polygon = Polygon(s.points[i0:i1+1])
+                  polygons.append(polygon)
+
+    return polygons
+
+def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
+    """
+    Read in the basins and plot them over a hillshade coloured by their cluster ID
+    """
+
+    df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    clusters = df.cluster_id.unique()
+
+    # make a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.15,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,5:100])
+
+    # plot the raster
+    hs_raster = IO.ReadRasterArrayBlocks(DataDirectory+fname_prefix+'_hs.bil')
+    extent = IO.GetRasterExtent(DataDirectory+fname_prefix+'_hs.bil')
+    # hs_raster = IO.ReadRasterArrayBlocks(DataDirectory+'Pozo_DTM_basin_208_hs.bil')
+    # extent = IO.GetRasterExtent(DataDirectory+'Pozo_DTM_basin_208_hs.bil')
+    plt.imshow(hs_raster, cmap=cm.gray, extent=extent)
+    plt.xticks(fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.xlabel('Easting (m)')
+    plt.ylabel('Northing (m)')
+
+    means = {}
+    for i,cl in enumerate(clusters):
+        this_df = df[df.cluster_id == cl]
+        # get the polygons
+        polygons = ReadBasinPolygons(DataDirectory, OutDirectory, fname_prefix+'_basins_SO{}_CL{}'.format(stream_order,int(cl)))
+        for p in polygons:
+            #print(list(p.exterior.coords))
+            patch = PolygonPatch(p, facecolor=this_df.iloc[0]['colour'], alpha=1.0, zorder=2, lw=0.2)
+            ax.add_patch(patch)
+        #print(polygons)
+        # for each
+
+    plt.savefig(OutDirectory+fname_prefix+'_hs_basins_SO{}.png'.format(stream_order), FigFormat='png', dpi=500)
+
 if __name__ == '__main__':
 
-    DataDirectory = '/home/clubb/Data_for_papers/river_clusters/Pozo/'
-    fname_prefix  = 'Pozo_DTM_basin_208'
+    DataDirectory = '/home/clubb/OneDrive/river_clusters/Pozo/'
+    fname_prefix  = 'Pozo_DTM'
     stream_order = 1
     shp = 'pozo_geol_WGS84.shp'
     field = 'Lithology'
     #PlotLithologyWithClusters(DataDirectory, fname_prefix, stream_order, shp, field)
-    PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order, geol_raster='pozo_geol_WGS84_new_padded')
+    #PlotRasterLithologyWithClusters(DataDirectory, fname_prefix, stream_order, geol_raster='pozo_geol_WGS84_new_padded')
+    PlotBasinsWithHillshade(DataDirectory, DataDirectory+'threshold_0/', fname_prefix, stream_order)
