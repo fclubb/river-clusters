@@ -127,7 +127,7 @@ if __name__ == '__main__':
         # # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
         # # print the nodes to csv for the catchment analysis
-        # cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
+        cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
     if args.geol_raster:
         #rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
         rpl.PlotRasterLithologyWithClusters(DataDirectory, DataDirectory, args.fname_prefix, args.stream_order, args.geol_raster)
