@@ -68,6 +68,23 @@ def bin_slope_area_data(slope, area, nbins=20):
     upper_per, bin_edges, binnumber = stats.binned_statistic(log_area, log_slope, bins=nbins, statistic=upper_p)
 
     return bin_meds, lower_per, upper_per, bin_centres, bin_edges
+
+def switch_colours(DataDirectory, fname_prefix, stream_order=1):
+    """
+    Function to switch the colours for a two cluster situation in case
+    the plotting was messed up
+    """
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+    clusters = df.cluster_id.unique()
+    colours = df.colour.unique()
+
+    #check if there are two
+    if len(colours) == 2:
+        df.loc[df.cluster_id == clusters[0], 'colour'] = colours[1]
+        df.loc[df.cluster_id == clusters[1], 'colour'] = colours[0]
+
+    df.to_csv(DataDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
+
 #---------------------------------------------------------------------#
 # PLOTTING FUNCTIONS
 #---------------------------------------------------------------------#
@@ -521,7 +538,6 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
 
     # read the csv and get some info
     df = pd.read_csv(OutDirectory+fname_prefix+"_profiles_clustered_SO{}.csv".format(stream_order))
-    colors = df['colour'].unique()
 
     print("========SOME CLUSTER STATISTICS=========")
     clusters = df['cluster_id'].unique()
@@ -533,6 +549,12 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     # set props for fliers
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
                   linestyle='none', markeredgecolor='k')
+
+    # sort the dataframe based on the cluster id
+    df = df.sort_values(by=['cluster_id'])
+    clusters = df.cluster_id.unique()
+    print(clusters)
+    colors = df['colour'].unique()
 
     # make the boxplot and return the dict with the boxplot properties
     bp_dict = df.boxplot(column=['slope'], by=['cluster_id'], return_type='both', patch_artist= True, flierprops=flierprops, figsize=(5,5))
@@ -573,7 +595,7 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     plt.suptitle('')
     ax.set_ylabel('Gradient (m/m)', fontsize=14)
     plt.subplots_adjust(left=0.2)
-    plt.savefig(OutDirectory+fname_prefix+'_boxplot.png', dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_boxplot_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
@@ -595,30 +617,27 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         catch_df["cluster_id"] = cl
         master_df = master_df.append(catch_df)
 
+    master_df = master_df.sort_values(by=['cluster_id'])
+
     # Do some stats, yo
     # KS test to see if we can distinguish the distributions at a confidence level of p = 0.05
     # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.kstest.html
     ks_dict = {}
     # relief
-    lists = master_df.groupby('cluster_id')['relief'].apply(np.asarray)
+    lists = master_df.groupby('cluster_id')['mean_slope'].apply(np.asarray)
     d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     print(d, p)
     ks_dict[0] = [d, p]
     # slope
-    lists = master_df.groupby('cluster_id')['mean_slope'].apply(np.asarray)
+    lists = master_df.groupby('cluster_id')['roughness'].apply(np.asarray)
     d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     print(d, p)
     ks_dict[1] = [d, p]
-    # curvature
-    lists = master_df.groupby('cluster_id')['plan_curv'].apply(np.asarray)
-    d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
-    print(d, p)
-    ks_dict[2] = [d, p]
     # veg_height
     # lists = master_df.groupby('cluster_id')['veg_height'].apply(np.asarray)
     # d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     # print(d, p)
-    # ks_dict[3] = [d, p]
+    # ks_dict[2] = [d, p]
     # drainage density
     # lists = master_df.groupby('cluster_id')['drainage_density'].apply(np.asarray)
     # d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
@@ -629,15 +648,15 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     flierprops = dict(marker='o', markerfacecolor='none', markersize=1,
                   linestyle='none', markeredgecolor='k')
 
-    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(4,8))
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4,6))
     axes = axes.ravel()
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    col_keys = ['relief', 'mean_slope', 'plan_curv']
-    labels = ['Basin relief (m)', 'Local gradient (m/m)', 'Planform curvature (m$^{-1}$)']
+    col_keys = ['mean_slope', 'roughness']
+    labels = ['Local gradient (m/m)', 'Local relief (m)']
     for i, this_ax in enumerate(axes):
         this_ax.set_ylabel(labels[i])
         this_ax.set_xlabel('')

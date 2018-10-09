@@ -59,6 +59,9 @@ if __name__ == '__main__':
     parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
     parser.add_argument("-geol", "--geol_raster", type=str, help="Pass a raster with the geology for plotting.")
 
+    # In case you want to switch the colours. Only works for a two cluster case
+    parser.add_argument("-sc", "--switch_colours", type=bool, help="Set to true to switch the colours. Only works for a two cluster case", default=False)
+
     args = parser.parse_args()
 
     if not args.fname_prefix:
@@ -101,28 +104,30 @@ if __name__ == '__main__':
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
     # get the profiles for the chosen stream order
-    new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
-    if args.stream_order > 1:
-        new_df = cl.RemoveNonUniqueProfiles(new_df)
-
-    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
-
-    # do the clustering. We will do this at two thrsehold levels for the cutoff point.
+    # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+    # if args.stream_order > 1:
+    #     new_df = cl.RemoveNonUniqueProfiles(new_df)
+    #
+    # new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    #
+    # # do the clustering. We will do this at two thrsehold levels for the cutoff point.
     thr_levels = [0,1]
     for i in thr_levels:
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):
-            os.makedirs(new_dir)
-        cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
-        pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # # rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
-        rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # # # if args.shp:
-        # # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-        # # # if args.geol_raster:
-        # # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
-        pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
-        pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+             os.makedirs(new_dir)
+    #     cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
+    #     if args.switch_colours:
+    #         pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
+    #     pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     # # rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
+    #     rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     # # # if args.shp:
+    #     # # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+    #     # # # if args.geol_raster:
+    #     # # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
+    #     pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
+    #     pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         # # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
@@ -134,9 +139,9 @@ if __name__ == '__main__':
 
 
     # plot the catchment metrics
-    #new_dir = DataDirectory+'threshold_0/'
-    #pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-    #rpl.PlotBasinsWithHillshade(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    # new_dir = DataDirectory+'threshold_0/'
+    # pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    # rpl.PlotBasinsWithHillshade(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
 
 
 
