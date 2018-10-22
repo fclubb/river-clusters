@@ -544,6 +544,7 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     for cl in clusters:
         this_df = df[df['cluster_id'] == cl]
         print("Cluster {}, median gradient = {}".format(cl, this_df['slope'].median()))
+        print("Cluster {}, IQR gradient = {}".format(cl, stats.iqr(this_df['slope'])))
     print("========================================")
 
     # set props for fliers
@@ -553,7 +554,6 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     # sort the dataframe based on the cluster id
     df = df.sort_values(by=['cluster_id'])
     clusters = df.cluster_id.unique()
-    print(clusters)
     colors = df['colour'].unique()
 
     # make the boxplot and return the dict with the boxplot properties
@@ -618,6 +618,16 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         master_df = master_df.append(catch_df)
 
     master_df = master_df.sort_values(by=['cluster_id'])
+
+    print("========SOME CLUSTER STATISTICS=========")
+    clusters = master_df['cluster_id'].unique()
+    for cl in clusters:
+        this_df = master_df[master_df['cluster_id'] == cl]
+        print("Cluster {}, median gradient = {}".format(cl, this_df['mean_slope'].median()))
+        print("Cluster {}, IQR = {}".format(cl, stats.iqr(this_df['mean_slope'])))
+        print("Cluster {}, median relief =  {}".format(cl, this_df['roughness'].median()))
+        print("Cluster {}, IQR = {}".format(cl, stats.iqr(this_df['roughness'])))
+    print("========================================")
 
     # Do some stats, yo
     # KS test to see if we can distinguish the distributions at a confidence level of p = 0.05

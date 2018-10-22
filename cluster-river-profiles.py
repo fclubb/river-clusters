@@ -43,8 +43,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # The location of the data files
-    parser.add_argument("-dir", "--base_directory", type=str, help="The base directory with the m/n analysis. If this isn't defined I'll assume it's the same as the current directory.")
-    parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error (unless you're running the parallel plotting).")
+    parser.add_argument("-dir", "--base_directory", type=str, help="The base directory. If this isn't defined I'll assume it's the same as the current directory.")
+    parser.add_argument("-fname", "--fname_prefix", type=str, help="The prefix of your DEM WITHOUT EXTENSION!!! This must be supplied or you will get an error.")
 
     # The options for clustering
     parser.add_argument("-len", "--profile_len", type=int, help="The minimum length of a profile to keep it. Default = 5 nodes.", default=5)
@@ -104,47 +104,31 @@ if __name__ == '__main__':
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
     # get the profiles for the chosen stream order
-    # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
-    # if args.stream_order > 1:
-    #     new_df = cl.RemoveNonUniqueProfiles(new_df)
+    new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+    if args.stream_order > 1:
+        new_df = cl.RemoveNonUniqueProfiles(new_df)
+
+    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
     #
-    # new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
-    #
-    # # do the clustering. We will do this at two thrsehold levels for the cutoff point.
+    # do the clustering. We will do this at two threshold levels for the cutoff point.
     thr_levels = [0,1]
     for i in thr_levels:
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):
              os.makedirs(new_dir)
-    #     cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
-    #     if args.switch_colours:
-    #         pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
-    #     pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-    #     # # rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, cbar_loc='right', custom_cbar_min_max=cbar_min_max)
-    #     rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-    #     # # # if args.shp:
-    #     # # #     rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-    #     # # # if args.geol_raster:
-    #     # # #     rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
-    #     pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
-    #     pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
+        if args.switch_colours:
+            pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
+        # these functions make some plots for you.
+        pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        if args.shp:
+            rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+        if args.geol_raster:
+            rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
+        pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
+        pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        # # pl.PlotSlopeAreaVsChi(DataDirectory, args.fname_prefix)
         pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-        # # print the nodes to csv for the catchment analysis
-        cl.PrintJunctionsToCSV(new_dir, args.fname_prefix, args.stream_order)
-    if args.geol_raster:
-        #rpl.PlotRasterLithology(DataDirectory, args.fname_prefix, args.geol_raster)
-        rpl.PlotRasterLithologyWithClusters(DataDirectory, DataDirectory, args.fname_prefix, args.stream_order, args.geol_raster)
-
-
-    # plot the catchment metrics
-    # new_dir = DataDirectory+'threshold_0/'
-    # pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-    # rpl.PlotBasinsWithHillshade(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-
-
 
     print('Enjoy your clusters, pal')
-
-    #PlotUniqueStreamsWithLength()
