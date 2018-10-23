@@ -15,8 +15,7 @@ raster_is_filled: false
 min_slope_for_fill: 0.001
 
 # What basins do you want?
-select_basins_by_order: true
-basin_order: 5
+all_basins: true
 
 # What analyses you want to do
 print_spaghetti_profiles_to_csv: false
