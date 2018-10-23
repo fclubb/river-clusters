@@ -4,9 +4,20 @@ This repository contains code for clustering rivers in different catchments base
 
 ## Dependencies
 
-In order to run the clustering code we first of all need to extract all of the river profiles from a catchment using LSDTopoTools.  To do this, first clone the LSDTopoTools2 git repository:
+In order to run the clustering code we first of all need to extract all of the river profiles from a catchment using LSDTopoTools.  First of all make sure you have some dependencies installed:
+```
+sudo apt-get install -y git
+sudo apt-get install -y gdal-bin
+sudo apt-get install -y python-gdal
+sudo apt-get install -y libfftw3-dev
+sudo apt-get install -y cmake
+```
+Then make a directory for LSDTopoTools and clone the LSDTopoTools2 git repository:
 
 ```
+cd ~
+mkdir LSDTopoTools 
+cd LSDTopoTools
 git clone https://github.com/LSDtopotools/LSDTopoTools2
 cd LSDTopoTools2
 ```
