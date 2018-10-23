@@ -25,7 +25,9 @@ Then install LSDTopoTools2 by running the following within the `LSDTopoTools2` d
 ```
 bash lsdtt2_setup.sh
 ```
-This will have installed the river clustering tool onto your machine.
+This will have installed LSDTopoTools2 onto your machine. 
+
+**NOTE - if you close the terminal you may not have the correct path to LSDTopoTools2 any more. If this is the case, simply run the `lsdtt2_setup.sh` script again in your new terminal before performing the river profile extraction**
 
 ## Download and install
 
@@ -37,7 +39,6 @@ git clone https://github.com/UP-RS-ESP/river-clusters.git
 cd river-clusters
 ```
 Then create a new conda environment using the included `environment.yml` file:
-
 ```
 conda env create -f environment.yml
 ```
@@ -50,6 +51,8 @@ Deactivate the environment at any time with
 source deactivate river-clusters
 ```
 You can also run the code without conda by ensuring that you have all of the dependencies installed e.g. via pip (see list in the `environment.yml` file.
+
+**NOTE - the conda environment creation can sometimes fail because of a single package. If so, then just remove that package from the list in the `environment.yml` file and then install it afterwards using `conda install <package-name>`**
 
 ## Look at the example data
 
@@ -96,8 +99,7 @@ The parameter `basin_order` controls which catchments are selected for clusterin
 
 ## Run LSDTopoTools to get the river profiles
 
-Go into the directory with the example data and then run the river profile clustering:
-
+Go into the directory with the example data and then run the river profile extraction:
 ```
 cd example_data
 lsdtt-river-clusters ./ river_clusters.driver
@@ -105,9 +107,14 @@ lsdtt-river-clusters ./ river_clusters.driver
 This always follows the format `lsdtt-river-clusters <path-to-data> <name-of-DEM>`
 
 This should have produced the file `DEM_name_all_tribs.csv` along with some other rasters (such as the stream network and a hillshade, for example). So for the example data, your directory should now look like this:
-
 ```
-ls
+$ ls
+river_clusters.driver    spatial_K_CN.csv    spatial_K_hs.hdr               spatial_K_SO.bil
+spatial_K_all_tribs.csv  spatial_K_Fill.bil  spatial_K_ingestedParam.param  spatial_K_SO.hdr
+spatial_K_basins.bil     spatial_K_Fill.hdr  spatial_K_JI.bil
+spatial_K_basins.hdr     spatial_K.hdr       spatial_K_JI.hdr
+spatial_K.bil            spatial_K_hs.bil    spatial_K_JN.csv
+
 ```
 
 ## Run the clustering code
@@ -128,6 +135,24 @@ For the example data, this command would look like:
 ```
 python cluster-river-profiles.py -dir ./example_data/ -fname spatial_K -so 1
 ```
+## Output
+
+After you have run the python script with the clustering, you should have produced some new data files and plots which you can use to examine the results. Within the main folder `example_data` you should have the following:
+* A plot of all the raw profiles: `spatial_K_profiles_upstream.png`
+* A plot of all the profiles of the specified stream order: `spatial_K_profiles_SO1.png`
+* A longitudinal river profile of the longest channel: `spatial_K_trunk_profile.png`
+* A plot of the number of clusters vs. the distance between clusters, which can be used to aid in determining an appropriate number of clusters: `spatial_K_clusters_dist.png`
+* A CSV file of the river profiles with the calculated channel gradient for each node: `spatial_K_slopes.csv`
+* A CSV file reporting the parameters that you used to run the clustering for reproducibility: `spatial_K_report.csv`
+ 
+The clustering is run at two different threshold levels, which give two different numbers of clusters (see the paper for more details, or contact me).  Therefore there will now be two different directories within `example_data`: `threshold_0` and `threshold_1`. Within each of these directories you should have:
+* A csv file with the river profiles and an assigned cluster ID: `spatial_K_clustered_SO1.csv`, where `SO1` means you clustered the first order streams.
+* A dendrogram showing the results of the clustering: `spatial_K_dendrogram_SO1.png`
+* Two plots showing the profiles coloured by their cluster ID in map view: `spatial_K_elev_clusters_SO1.png` and `spatial_K_hs_clusters_SO1.png`
+* The gradient vs. distance profiles separated by cluster. This will be a separate png image for each cluster: e.g. `spatial_K_profiles_SO1_CL1.png` and `spatial_K_profiles_SO1_CL2.png`
+* The median gradient vs. distance profiles for all clusters: `spatial_K_profiles_median_SO1.png`
+* A boxplot showing the distribution of channel gradient in each cluster: `spatial_K_boxplot_SO1.png`
+* Slope-area plots of the channels individually for each cluster with the extracted channel steepness: `spatial_K_SA_median_SO1.png`
 
 ## Contact
 
