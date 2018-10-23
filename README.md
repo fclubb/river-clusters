@@ -33,7 +33,7 @@ The best way to run the code is to use `conda`. Install Anaconda or Miniconda wi
 
 First of all clone the repository:
 ```
-git clone https://github.com/fclubb/river-clusters.git
+git clone https://github.com/UP-RS-ESP/river-clusters.git
 cd river-clusters
 ```
 Then create a new conda environment using the included `environment.yml` file:
