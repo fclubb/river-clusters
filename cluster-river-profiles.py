@@ -121,6 +121,7 @@ if __name__ == '__main__':
             pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
         # these functions make some plots for you.
         pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         if args.shp:
             rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
