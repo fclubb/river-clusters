@@ -96,19 +96,19 @@ if __name__ == '__main__':
         df = pd.read_csv(slope_file)
     else:
         # read in the original csv
-        df = pd.read_csv(DataDirectory+args.fname_prefix+'_all_tribs.csv')
+        df = pd.read_csv(DataDirectory+args.fname_prefix+'_profiles_SO{}.csv'.format(args.stream_order))
 
         # remove profiles with short unique section
         # calculate the slope
         df = cl.CalculateSlope(DataDirectory, args.fname_prefix, df, args.slope_window)
-        df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
+        df.to_csv(DataDirectory+args.fname_prefix+'_slopes_SO{}.csv'.format(args.stream_order), index=False)
 
-    # get the profiles for the chosen stream order
-    new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
-    if args.stream_order > 1:
-        new_df = cl.RemoveNonUniqueProfiles(new_df)
+    # # get the profiles for the chosen stream order
+    # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+    # if args.stream_order > 1:
+    #     new_df = cl.RemoveNonUniqueProfiles(new_df)
 
-    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    new_df = cl.RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
     #
     # do the clustering. We will do this at two threshold levels for the cutoff point.
     thr_levels = [0,1]
