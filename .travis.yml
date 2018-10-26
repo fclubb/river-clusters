@@ -20,7 +20,7 @@ install:
   - conda info -a
 
   # Create the conda environment for testing
-  - conda create -n river-clusters -f environment.yml
+  - conda env create -f environment.yml
   - source activate river-clusters
 
 script:
