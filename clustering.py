@@ -139,7 +139,7 @@ def ProfilesRegularDistance(DataDirectory, fname_prefix, df, profile_len = 1000,
     #
     return thinned_df, data
 
-def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, profile_len=4,step=2, slope_window_size=25):
+def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, step=2, slope_window_size=25, stream_order=1):
     """
     This function takes the dataframe of river profiles and creates an array
     that can be used for the time series clustering.  For each profile, the slope
@@ -149,7 +149,6 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, profile_len=4,
 
     Args:
         df: pandas dataframe from the river profile csv.
-        profile_len (int): number of unique points you need to keep a profile
         step (int): step size that you want in metres. This should be greater than the maximum
         possible spacing between your points (max_spacing = sqrt(2 * DataRes^2)). Default = 2
         slope_window_size (int): window over which slope was calculated
@@ -203,12 +202,8 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, profile_len=4,
     cols.append('reg_dist')
     thinned_df = pd.DataFrame(data=rows_list,columns=cols)
 
-    # now remove non-unique profiles
-    thinned_df = RemoveNonUniqueProfiles(thinned_df)
-    thinned_df = RemoveProfilesWithShortUniqueSection(thinned_df, profile_len)
-
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.csv', index=False)
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}_reg_dist.csv', index=False)
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')

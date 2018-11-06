@@ -103,6 +103,8 @@ if __name__ == '__main__':
         df = cl.CalculateSlope(DataDirectory, args.fname_prefix, df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes_SO{}.csv'.format(args.stream_order), index=False)
 
+    new_df = cl.ProfilesRegDistVaryingLength(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+
     # # get the profiles for the chosen stream order
     # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
     # if args.stream_order > 1:
