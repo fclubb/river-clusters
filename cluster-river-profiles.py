@@ -110,7 +110,7 @@ if __name__ == '__main__':
     # if args.stream_order > 1:
     #     new_df = cl.RemoveNonUniqueProfiles(new_df)
 
-    new_df = cl.RemoveProfilesShorterThanThresholdLength(df, args.profile_len)
+    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
     #
     # do the clustering. We will do this at two threshold levels for the cutoff point.
     thr_levels = [0,1]
