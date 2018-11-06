@@ -171,18 +171,20 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, step=2, slope_
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
-    source_ids = df['id'].unique()
+    source_ids = longest_df['id'].unique()
     print (source_ids)
     rows_list = []
     for i, source in enumerate(source_ids):
-        this_df = df[df['id'] == source]
+        this_df = longest_df[longest_df['id'] == source]
+        # get the distances from the channel head
+        distances = [this_df.distance_from_outlet.max()-x for x in this_df.distance_from_outlet]
+    #    print distances
         # create new array of regularly spaced differences
-        reg_dist = np.arange(step, int(this_df.distance_from_outlet.max())+step, step)
+        reg_dist = np.arange(step, int(np.max(distances)+step), step)
 
         if not this_df.empty:
-            df_array = this_df.values[::-1]
-            slopes = df_array[:,-1]
-            distances = df_array[:,5]
+            df_array = this_df.values
+            slopes = this_df['slope'].values
             reg_slope = []
             for d in reg_dist:
                 # find the index of the nearest point in the distance array
@@ -203,12 +205,12 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, step=2, slope_
     thinned_df = pd.DataFrame(data=rows_list,columns=cols)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}_reg_dist.csv'.format(int(stream_order)), index=False)
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}_reg_dist.csv'.format(stream_order), index=False)
 
     # now save the figure
-    ax.set_xlabel('Distance from outlet (m)')
+    ax.set_xlabel('Distance from source (m)')
     ax.set_ylabel('Gradient')
-    plt.savefig(DataDirectory+fname_prefix+'_profiles_upstream_reg_dist_var_length.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_profiles_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
     return thinned_df
