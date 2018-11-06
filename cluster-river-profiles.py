@@ -132,6 +132,6 @@ if __name__ == '__main__':
         pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
         pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+       # pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
 
     print('Enjoy your clusters, pal')

@@ -41,7 +41,7 @@ def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
     import LSDPlottingTools as LSDP
     from LSDMapFigure.PlottingRaster import MapFigure
 
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_CN.csv')
     cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
@@ -89,7 +89,7 @@ def PlotHillshadewithClusters(DataDirectory, OutDirectory, fname_prefix,stream_o
         import LSDPlottingTools as LSDP
         from LSDMapFigure.PlottingRaster import MapFigure
 
-        df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
+        df = pd.read_csv(DataDirectory+fname_prefix+'_CN.csv')
         cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
@@ -137,7 +137,7 @@ def PlotLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
         import LSDPlottingTools as LSDP
         from LSDMapFigure.PlottingRaster import MapFigure
 
-        df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
+        df = pd.read_csv(DataDirectory+fname_prefix+'_CN.csv')
         cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 
@@ -193,7 +193,7 @@ def PlotRasterLithologyWithClusters(DataDirectory, OutDirectory, fname_prefix, s
         import LSDPlottingTools as LSDP
         from LSDMapFigure.PlottingRaster import MapFigure
 
-        df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
+        df = pd.read_csv(DataDirectory+fname_prefix+'_CN.csv')
         cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
 

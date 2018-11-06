@@ -208,7 +208,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
     Author: FJC
     """
     cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
-    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes_SO{}.csv'.format(stream_order))
 
     # find out some info
     clusters = cluster_df.cluster_id.unique()
@@ -320,7 +320,7 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
 
     Author: FJC
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes_SO{}.csv'.format(stream_order))
 
     # find out some info
     sources = df.id.unique()
@@ -408,7 +408,7 @@ def PlotUniqueStreamsWithLength(DataDirectory, OutDirectory, fname_prefix, step=
     Author: FJC
     """
     # read in the original csv
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(stream_order))
 
     max_length = df['distance_from_outlet'].max()
     len_step=100
@@ -460,36 +460,12 @@ def PlotLongitudinalProfiles(DataDirectory, fname_prefix):
     plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
     plt.clf()
 
-def PlotTrunkChannel(DataDirectory, fname_prefix):
-    """
-    Make a simple plot of the longest channel. This is mostly to use for the model runs.
-    """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
-
-    # set up a figure
-    fig,ax = plt.subplots(nrows=1,ncols=1, figsize=(6,4), sharex=True, sharey=True)
-
-    trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
-
-    this_df = df[df['id'] == trunk_src]
-    ax.grid(color='0.8', linestyle='--', which='major')
-    ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
-
-    ax.set_xlabel('Distance from outlet (m)', fontsize=14)
-    ax.set_ylabel('Elevation (m)', fontsize=14)
-    #ax.set_xlim(0,2500)
-    ax.set_ylim(0,40)
-    plt.subplots_adjust(bottom=0.2, left=0.15)
-
-    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
-    plt.clf()
-
 def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
     """
     Make a plot of the elevation and slope against the distance from the channel head
     For the paper
     """
-    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes.csv')
+    df = pd.read_csv(DataDirectory+fname_prefix+'_slopes_SO{}.csv'.format(stream_order))
 
     # set up a figure
     fig = plt.figure(1, facecolor='white')

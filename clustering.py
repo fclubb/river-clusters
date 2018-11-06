@@ -203,7 +203,7 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, step=2, slope_
     thinned_df = pd.DataFrame(data=rows_list,columns=cols)
 
     # write the thinned_df to output in case we want to reload
-    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}_reg_dist.csv'.format(args.stream_order), index=False)
+    thinned_df.to_csv(DataDirectory+fname_prefix+'_profiles_SO{}_reg_dist.csv'.format(int(stream_order)), index=False)
 
     # now save the figure
     ax.set_xlabel('Distance from outlet (m)')
