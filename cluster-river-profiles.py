@@ -113,7 +113,7 @@ if __name__ == '__main__':
     new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
     #
     # do the clustering. We will do this at two threshold levels for the cutoff point.
-    thr_levels = [0,1]
+    thr_levels = [0,1,2,3,4]
     for i in thr_levels:
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):

@@ -171,6 +171,7 @@ def ProfilesRegDistVaryingLength(DataDirectory, fname_prefix, df, step=2, slope_
 
     # loop through the dataframe and store the data for each profile as an array of
     # slopes and distances
+    longest_df = df
     source_ids = longest_df['id'].unique()
     print (source_ids)
     rows_list = []
@@ -429,8 +430,8 @@ def ClusterProfilesVaryingLength(DataDirectory, OutDirectory, fname_prefix, df, 
 
     # set colour palette: 8 class Set 1 from http://colorbrewer2.org
     N_colors = 8
-    #colors = pl.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
-    colors = ['#e41a1c', '#377eb8', '#000000']
+    colors = pl.list_of_hex_colours(N_colors, 'Set1')[:cl.max()]
+    #colors = ['#e41a1c', '#377eb8', '#000000']
     threshold_color = '#A9A9A9'
     clusters = df['cluster_id'].unique()
 
