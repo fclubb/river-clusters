@@ -136,7 +136,7 @@ def PlotProfilesByCluster(DataDirectory, OutDirectory, fname_prefix, stream_orde
         ax.set_ylabel('Gradient')
         ax.set_title('Cluster {}'.format(int(cl)))
 
-        plt.savefig(OutDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300)
+        plt.savefig(OutDirectory+fname_prefix+('_profiles_SO{}_CL{}.png').format(stream_order, int(cl)), dpi=300, transparent=True)
         plt.clf()
 
     # write the clustered dataframe to csv
@@ -190,7 +190,7 @@ def PlotMedianProfiles(DataDirectory, OutDirectory, fname_prefix, stream_order=1
     #ax.legend(loc='upper right')
 
     # save and clear the figure
-    plt.savefig(OutDirectory+fname_prefix+('_profiles_median_SO{}.png'.format(stream_order)), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+('_profiles_median_SO{}.png'.format(stream_order)), dpi=300,transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
@@ -309,7 +309,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         plt.subplots_adjust(left=0.15, hspace=0.3)
 
     # save and clear the figure
-    plt.savefig(OutDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+('_SA_median_SO{}.png'.format(stream_order)), dpi=300, transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
@@ -395,7 +395,7 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     cbar.set_label('$k_s$', fontsize=10)
 
     # save and clear the figure
-    plt.savefig(DataDirectory+fname_prefix+'_SA_all.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_SA_all.png', dpi=300, transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
@@ -434,7 +434,7 @@ def PlotUniqueStreamsWithLength(DataDirectory, OutDirectory, fname_prefix, step=
     ax.set_xlabel('Profile length (m)')
     ax.set_ylabel('Number of unique channels')
 
-    plt.savefig(OutDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_n_channels_with_length.png', dpi=300, transparent=True)
     plt.clf()
 
 def PlotLongitudinalProfiles(DataDirectory, fname_prefix):
@@ -457,7 +457,7 @@ def PlotLongitudinalProfiles(DataDirectory, fname_prefix):
     ax.set_xlabel('Distance from outlet (m)')
     ax.set_ylabel('Elevation (m)')
 
-    plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_long_profiles.png', dpi=300, transparent=True)
     plt.clf()
 
 def PlotTrunkChannel(DataDirectory, fname_prefix):
@@ -481,7 +481,7 @@ def PlotTrunkChannel(DataDirectory, fname_prefix):
     ax.set_ylim(0,40)
     plt.subplots_adjust(bottom=0.2, left=0.15)
 
-    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_trunk_profile.png', dpi=300, transparent=True)
     plt.clf()
 
 def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
@@ -528,7 +528,7 @@ def PlotElevDistanceTrunkChannel(DataDirectory, fname_prefix, stream_order=1):
     #ax.set_xlim(0,2500)
     #ax.set_ylim(0,35)
 
-    plt.savefig(DataDirectory+fname_prefix+'_trunk_elev_dist.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_trunk_elev_dist.png', dpi=300, transparent=True)
     plt.clf()
 
 def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
@@ -595,7 +595,7 @@ def MakeBoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix, stream_order
     plt.suptitle('')
     ax.set_ylabel('Gradient (m/m)', fontsize=14)
     plt.subplots_adjust(left=0.2)
-    plt.savefig(OutDirectory+fname_prefix+'_boxplot_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_boxplot_SO{}.png'.format(stream_order), dpi=300, transparent=True)
     plt.clf()
 
 def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, stream_order=1):
@@ -717,5 +717,5 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         # ax.set_ylabel('Catchment relief (m)', fontsize=14)
 
     # plt.subplots_adjust(left=0.2)
-    plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot_SO{}.png'.format(stream_order), dpi=300, transparent=True)
     plt.clf()
