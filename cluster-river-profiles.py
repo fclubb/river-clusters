@@ -7,8 +7,8 @@
 #---------------------------------------------------------------------#
 
 # setting backend to run on server
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 import os
 import sys
 import pandas as pd
@@ -59,6 +59,9 @@ if __name__ == '__main__':
     parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
     parser.add_argument("-geol", "--geol_raster", type=str, help="Pass a raster with the geology for plotting.")
 
+    # Options for channel steepness analysis for comparison
+    parser.add_argument("-SA", "--slope_area", type=bool, help='Set to true to make slope-area plots', default=False)
+
     # In case you want to switch the colours. Only works for a two cluster case
     parser.add_argument("-sc", "--switch_colours", type=bool, help="Set to true to switch the colours. Only works for a two cluster case", default=False)
 
@@ -103,33 +106,37 @@ if __name__ == '__main__':
         df = cl.CalculateSlope(DataDirectory, args.fname_prefix, df, args.slope_window)
         df.to_csv(DataDirectory+args.fname_prefix+'_slopes.csv', index=False)
 
-    # get the profiles for the chosen stream order
-    new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
-    if args.stream_order > 1:
-        new_df = cl.RemoveNonUniqueProfiles(new_df)
+    # slope-area plotting if required
+    if args.slope_area:
+        rpl.PlotKsnFromSlopeArea(DataDirectory, args.fname_prefix, theta=0.45)
 
-    new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    # # get the profiles for the chosen stream order
+    # new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
+    # if args.stream_order > 1:
+    #     new_df = cl.RemoveNonUniqueProfiles(new_df)
     #
-    # do the clustering. We will do this at two threshold levels for the cutoff point.
-    thr_levels = [0,1]
-    for i in thr_levels:
-        new_dir = DataDirectory+'threshold_{}/'.format(str(i))
-        if not os.path.isdir(new_dir):
-             os.makedirs(new_dir)
-        cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
-        if args.switch_colours:
-            pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
-        # these functions make some plots for you.
-        pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        if args.shp:
-            rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-        if args.geol_raster:
-            rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
-        pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
-        pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+    # new_df = cl.RemoveProfilesShorterThanThresholdLength(new_df, args.profile_len)
+    # #
+    # # do the clustering. We will do this at two threshold levels for the cutoff point.
+    # thr_levels = [0,1]
+    # for i in thr_levels:
+    #     new_dir = DataDirectory+'threshold_{}/'.format(str(i))
+    #     if not os.path.isdir(new_dir):
+    #          os.makedirs(new_dir)
+    #     cl.ClusterProfilesVaryingLength(DataDirectory, new_dir, args.fname_prefix, new_df, args.method, args.stream_order, i)
+    #     if args.switch_colours:
+    #         pl.switch_colours(new_dir, args.fname_prefix, args.stream_order)
+    #     # these functions make some plots for you.
+    #     pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     if args.shp:
+    #         rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
+    #     if args.geol_raster:
+    #         rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
+    #     pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
+    #     pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+    #     pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
 
     print('Enjoy your clusters, pal')

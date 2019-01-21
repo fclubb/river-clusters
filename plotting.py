@@ -719,3 +719,40 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     # plt.subplots_adjust(left=0.2)
     plt.savefig(OutDirectory+fname_prefix+'_catchment_boxplot_SO{}.png'.format(stream_order), dpi=300, transparent=True)
     plt.clf()
+
+#------------------------------------------------------------------------------------------------------------------------#
+# Slope-area channel steepness plotting
+#------------------------------------------------------------------------------------------------------------------------#
+
+def MakeSlopeAreaPlotFixedConcavity(DataDirectory, fname_prefix, theta=0.45):
+    """
+    Make a plot of the slope area data with a fixed concavity
+    """
+    print("Making slope area plot...")
+    # read the csv and get some info
+    df = pd.read_csv(DataDirectory+fname_prefix+"_slopes.csv")
+    print(df)
+
+    # set up a figure
+    fig = plt.figure(1, facecolor='white')
+    gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
+    ax = fig.add_subplot(gs[5:100,10:95])
+
+    # first - just plot all of the slope-area data
+    ax.scatter(df['drainage_area'], df['slope'], s=2, c='k')
+
+    # now force a fit of ks based on this concavity
+    area = df['drainage_area'].values
+    slope = df['slope'].values
+    log_slope = np.log(df['slope'])
+    log_area = np.log(df['drainage_area'])
+
+    ksn = slope/(area**(-theta))
+    print(ksn)
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Drainage area ($m^2$)')
+    ax.set_ylabel('Gradient (m/m)')
+    ax.set_ylim(0.0001, 10)
+    plt.show()

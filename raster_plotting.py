@@ -10,6 +10,7 @@ from LSDPlottingTools import LSDMap_VectorTools as VT
 from LSDPlottingTools import LSDMap_GDALIO as IO
 from LSDPlottingTools import LSDMap_BasicManipulation as BM
 from LSDMapFigure import PlottingRaster
+from LSDMapFigure.PlottingRaster import MapFigure
 import pandas as pd
 from shapely.geometry import shape, Polygon
 from descartes.patch import PolygonPatch
@@ -18,6 +19,7 @@ import os
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.cm as cm
 from matplotlib import rcParams
+import LSDPlottingTools as LSDP
 
 # Set up fonts for plots
 label_size = 12
@@ -38,8 +40,6 @@ def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
 
     Author: FJC
     """
-    import LSDPlottingTools as LSDP
-    from LSDMapFigure.PlottingRaster import MapFigure
 
     df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
     cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
@@ -346,6 +346,49 @@ def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, stream_or
         # for each
 
     plt.savefig(OutDirectory+fname_prefix+'_hs_basins_SO{}.png'.format(stream_order), FigFormat='png', dpi=500, transparent=True)
+
+def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='right'):
+    """
+    Make a plot of the slope area data with a fixed concavity
+    """
+    import numpy as np
+
+    print("Calculating ksn...")
+    # read the csv and get some info
+    df = pd.read_csv(DataDirectory+fname_prefix+"_slopes.csv")
+
+    # now force a fit of ks based on this concavity
+    area = df['drainage_area'].values
+    slope = df['slope'].values
+
+    ksn = slope/(area**(-theta))
+    df['ksn'] = ksn
+    print(np.max(ksn), np.min(ksn))
+    print(ksn)
+
+    # set figure sizes based on format
+    fig_width_inches = 8
+
+    # some raster names
+    raster_ext = '.bil'
+    BackgroundRasterName = fname_prefix+raster_ext
+    HSName = fname_prefix+'_hs'+raster_ext
+
+    if not os.path.isfile(DataDirectory+HSName):
+        # make a hillshade
+        BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
+
+    # create the map figure
+    MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
+
+    # add the ksn data
+    ChannelPoints = LSDP.LSDMap_PointData(df, data_type = "pandas", PANDEX = True)
+    MF.add_point_data(ChannelPoints, this_colourmap='viridis', column_for_plotting='ksn', colour_log=True,zorder=100)
+    #plt.show()
+
+    MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_ksn.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False, axis_style='Thin', transparent=True) # Save the figure
+    plt.clf()
+
 
 if __name__ == '__main__':
 
