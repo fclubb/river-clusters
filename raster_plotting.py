@@ -347,7 +347,7 @@ def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, stream_or
 
     plt.savefig(OutDirectory+fname_prefix+'_hs_basins_SO{}.png'.format(stream_order), FigFormat='png', dpi=500, transparent=True)
 
-def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='right'):
+def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='right', custom_cbar_min_max = []):
     """
     Make a plot of the slope area data with a fixed concavity
     """
@@ -366,8 +366,10 @@ def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='righ
     print(np.max(ksn), np.min(ksn))
     print(ksn)
 
+    df.to_csv(DataDirectory+fname_prefix+'_ksn.csv', index=False)
+
     # set figure sizes based on format
-    fig_width_inches = 8
+    fig_width_inches = 6
 
     # some raster names
     raster_ext = '.bil'
@@ -379,11 +381,12 @@ def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='righ
         BM.GetHillshade(DataDirectory+BackgroundRasterName, DataDirectory+HSName)
 
     # create the map figure
-    MF = MapFigure(HSName, DataDirectory,coord_type="UTM")
+    MF = MapFigure(HSName, DataDirectory,coord_type="UTM", cbar_loc='right', font_size=16)
+    #MF.add_drape_image(BackgroundRasterName,DataDirectory,colourmap = 'gray', alpha=0.5)
 
     # add the ksn data
     ChannelPoints = LSDP.LSDMap_PointData(df, data_type = "pandas", PANDEX = True)
-    MF.add_point_data(ChannelPoints, this_colourmap='viridis', column_for_plotting='ksn', colour_log=True,zorder=100)
+    MF.add_point_data(ChannelPoints, this_colourmap='viridis', column_for_plotting='ksn', colour_log=True,zorder=100, show_colourbar = True, colourbar_location='bottom', font_size=24, colorbarlabel = "log$_{10}(k_{sn})$", manual_size = 1, colour_manual_scale = [0,1.8])
     #plt.show()
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_ksn.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False, axis_style='Thin', transparent=True) # Save the figure

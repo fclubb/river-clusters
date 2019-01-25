@@ -220,11 +220,89 @@ def PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, stream_or
 
     plt.savefig(OutDirectory+'polygons.png', FigFormat='png', dpi=500)
 
+def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.45, label_list=[]):
+    """
+    Make boxplots of ksn compared to lithology raster. Lithology should have integer
+    values for the different rock types (rock type with 0 is excluded). Pass in list of
+    labels for the different units, which must be the same length as the number of lithology codes.
+    If none is passed then just use the integer values for labelling.
+    """
+    # read in the raster
+    raster_ext = '.bil'
+    this_raster = IO.ReadRasterArrayBlocks(DataDirectory+raster_name)
+    #EPSG_string = IO.GetUTMEPSG(DataDirectory+raster_name)
+    EPSG_string='epsg:32611'
+    print(EPSG_string)
+    NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(DataDirectory+raster_name)
+    CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(DataDirectory+raster_name)
 
-DataDirectory = '/home/clubb/OneDrive/river_clusters/Bitterroot_NF/'
+    pts = PT.LSDMap_PointData(DataDirectory+fname_prefix+'_ksn.csv',data_type ='csv')
+    print(pts)
+    easting, northing = pts.GetUTMEastingNorthing(EPSG_string=EPSG_string)
+    ksn = pts.QueryData('ksn', PANDEX=True)
+    #print(ksn)
+
+    # get the unique values in the raster
+    raster_values = np.unique(this_raster)
+    raster_values = raster_values[1:]
+
+
+    # dict for the data
+    data = {k: [] for k in raster_values}
+
+    for x, (i, j) in enumerate(zip(northing, easting)):
+    # convert to rows and cols
+        X_coordinate_shifted_origin = j - XMin;
+        Y_coordinate_shifted_origin = i - YMin;
+
+        col_point = int(X_coordinate_shifted_origin/CellSize);
+        row_point = (ysize - 1) - int(round(Y_coordinate_shifted_origin/CellSize));
+        # check for data at this cell
+        this_raster_value = this_raster[row_point][col_point]
+        if not np.isnan(this_raster_value) and this_raster_value != 0:
+            data[this_raster_value].append(ksn[x])
+
+    # set up a figure
+    fig,ax = plt.subplots(nrows=1,ncols=1, figsize=(5,5), sharex=True, sharey=True)
+
+    labels, dict = [*zip(*data.items())]  # 'transpose' items to parallel key, value lists
+    print(label_list)
+    if label_list:
+        labels = label_list
+    print(labels)
+    box = plt.boxplot(dict, patch_artist=True)
+    plt.xticks(range(1, len(labels) + 1), labels)
+    plt.ylabel('$k_{sn}$')
+
+    # change the colours for each lithology
+    colors=['#60609fff', '#fdbb7fff', '#935353ff', '#f07b72ff']
+    for patch, color in zip(box['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.9)
+        patch.set_edgecolor('k')
+    for cap in box['caps']:
+        cap.set(color='k')
+    for wh in box['whiskers']:
+        wh.set(color='k')
+    for med in box['medians']:
+        med.set(color='k')
+    for flier, color in zip(box['fliers'], colors):
+        flier.set_markeredgecolor(color)
+        flier.set_markerfacecolor(color)
+        flier.set_markersize(2)
+
+    ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
+    plt.savefig(DataDirectory+fname_prefix+'_boxplot_lith_ksn.png', dpi=300, transparent=True)
+    plt.clf()
+
+
+
+DataDirectory = '/home/fiona/pCloudDrive/Data_for_papers/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
-fname_prefix = 'Bitterroot_clip'
-raster_name = 'Pozo_DTM_veg_height_avg.bil'
+fname_prefix = 'Pozo_DTM_basin_208'
+raster_name = 'pozo_geol_WGS84_reclass.tif'
+label_list = ['Canada shale', 'Upper BV', 'Lower BV', 'SO breccia']
 # BoxPlotByCluster(DataDirectory, OutDirectory, fname_prefix,  raster_name, stream_order=1)
 #GetLithologyPercentages(DataDirectory,OutDirectory,fname_prefix,raster_name,stream_order=1)
-PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_name,stream_order=2)
+#PlotBasinsWithHillshade(DataDirectory, OutDirectory, fname_prefix, raster_name,stream_order=2)
+MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.45, label_list=label_list)
