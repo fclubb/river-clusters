@@ -386,7 +386,7 @@ def PlotKsnFromSlopeArea(DataDirectory, fname_prefix, theta=0.45, cbar_loc='righ
 
     # add the ksn data
     ChannelPoints = LSDP.LSDMap_PointData(df, data_type = "pandas", PANDEX = True)
-    MF.add_point_data(ChannelPoints, this_colourmap='viridis', column_for_plotting='ksn', colour_log=True,zorder=100, show_colourbar = True, colourbar_location='bottom', font_size=24, colorbarlabel = "log$_{10}(k_{sn})$", manual_size = 1, colour_manual_scale = [0,1.8])
+    MF.add_point_data(ChannelPoints, this_colourmap='viridis', column_for_plotting='ksn', colour_log=True,zorder=100, show_colourbar = True, colourbar_location='bottom', font_size=24, colorbarlabel = "log$_{10}(k_{sn})", manual_size = 1.5, colour_manual_scale = [0,1.8])
     #plt.show()
 
     MF.save_fig(fig_width_inches = fig_width_inches, FigFileName = DataDirectory+fname_prefix+'_ksn.png', FigFormat='png', Fig_dpi = 300, fixed_cbar_characters=6, adjust_cbar_characters=False, axis_style='Thin', transparent=True) # Save the figure

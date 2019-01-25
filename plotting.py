@@ -297,7 +297,7 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
         ax[i].set_xlim(area_t-300,)
-        ax[i].set_ylim(0.001, 1)
+        #ax[i].set_ylim(0.001, 1)
         ax[i].set_title('Cluster {}: $k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(int(cl), round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=12)
 
     # set axis labels
@@ -314,9 +314,9 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
     plt.cla()
     plt.close()
 
-def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
+def PlotSlopeArea(DataDirectory, fname_prefix):
     """
-    Make a summary plot showing a SA plot and a chi plot for all the channels in the basin
+    Make a summary plot showing a SA plot for all the channels in the basin
 
     Author: FJC
     """
@@ -326,16 +326,23 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     sources = df.id.unique()
 
     # set up a figure
-    fig,ax = plt.subplots(nrows=1,ncols=2, figsize=(10,4.5), sharex=False, sharey=False)
+    fig,ax = plt.subplots(nrows=1,ncols=1, figsize=(7,5), sharex=False, sharey=False)
 
     filter_df = df[df['drainage_area'] > 1000]
     # calculate the channel steepness
     area = filter_df['drainage_area'].values
     med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(filter_df['slope'], area)
 
+    # check for nans
+    bin_centres = bin_centres[np.isnan(med_slopes) == False] #np.ma.masked_where(np.isnan(med_slopes), bin_centres)
+    lower_per = lower_per[np.isnan(med_slopes) == False]
+    upper_per = upper_per[np.isnan(med_slopes) == False]
+    med_slopes = med_slopes[np.isnan(med_slopes) == False] #med_slopes = np.ma.masked_where(np.isnan(med_slopes), med_slopes)
     # linear regression using statsmodels
     # include constant in ols models, which is not done by default
     x = sm.add_constant(bin_centres)
+
+    print(bin_centres, med_slopes)
 
     # ordinary least squares
     model = sm.OLS(med_slopes,x)
@@ -364,41 +371,42 @@ def PlotSlopeAreaVsChi(DataDirectory, fname_prefix):
     y2 = intercept*x2**(gradient)
 
     # LEFT - slope area plot
-    ax[0].grid(color='0.8', linestyle='--', which='both', zorder=1)
-    ax[0].scatter(filter_df['drainage_area'], filter_df['slope'], color='0.5', s=1, zorder=2)
-    ax[0].errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='r', mec='k', zorder=3, c='k')
-    ax[0].plot(x2, y2, "--", c='k')
-    #ax[0].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[0][i].transAxes,fontsize=12)
-    ax[0].set_xscale('log')
-    ax[0].set_yscale('log')
-    ax[0].set_xlim(700,)
-    ax[0].set_ylim(0.0001, 10)
-    ax[0].set_title('$k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=14)
+    ax.grid(color='0.8', linestyle='--', which='both', zorder=1)
+    ax.scatter(filter_df['drainage_area'], filter_df['slope'], color='0.5', s=1, zorder=2)
+    ax.errorbar(med_areas, med_slopes, xerr=None, yerr=[lower_err, upper_err], fmt='o', ms=5, marker='D', mfc='r', mec='k', zorder=3, c='k')
+    ax.plot(x2, y2, "--", c='k')
+    #ax.text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(700,)
+    #ax.set_ylim(0.0001, 10)
+    ax.set_title('$k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=14)
 
 
     # set axis labels
-    ax[0].set_xlabel('Drainage area (m$^2$)', fontsize=14)
-    ax[0].set_ylabel('Gradient (m/m)', labelpad=15, fontsize=14)
-    plt.subplots_adjust(wspace=0.3,bottom=0.15)
+    ax.set_xlabel('Drainage area (m$^2$)', fontsize=14)
+    ax.set_ylabel('Gradient (m/m)', labelpad=15, fontsize=14)
+    plt.subplots_adjust(left=0.15, bottom=0.15)
 
-    # RIGHT - chi plot
-    chi_df = pd.read_csv(DataDirectory+fname_prefix+'_MChiSegmented.csv')
-    norm = mcolors.Normalize(vmin=chi_df['m_chi'].min(),vmax=30)
-    ax[1].grid(color='0.8', linestyle='--', which='both', zorder=1)
-    sc = ax[1].scatter(chi_df['chi'], chi_df['elevation'], c=chi_df['m_chi'], cmap=cm.viridis, norm=norm, s=1, zorder=2)
-    ax[1].set_xlabel('$\chi$ (m)', fontsize=14)
-    ax[1].set_ylabel('Elevation (m)', labelpad=15, fontsize=14)
-
-    # add a colourbar_location
-    cax = fig.add_axes([0.58, 0.82, 0.2, 0.02])
-    cbar = plt.colorbar(sc,cmap=cm.viridis, orientation='horizontal',cax=cax)
-    cbar.set_label('$k_s$', fontsize=10)
+    # # RIGHT - chi plot
+    # chi_df = pd.read_csv(DataDirectory+fname_prefix+'_MChiSegmented.csv')
+    # norm = mcolors.Normalize(vmin=chi_df['m_chi'].min(),vmax=30)
+    # ax[1].grid(color='0.8', linestyle='--', which='both', zorder=1)
+    # sc = ax[1].scatter(chi_df['chi'], chi_df['elevation'], c=chi_df['m_chi'], cmap=cm.viridis, norm=norm, s=1, zorder=2)
+    # ax[1].set_xlabel('$\chi$ (m)', fontsize=14)
+    # ax[1].set_ylabel('Elevation (m)', labelpad=15, fontsize=14)
+    #
+    # # add a colourbar_location
+    # cax = fig.add_axes([0.58, 0.82, 0.2, 0.02])
+    # cbar = plt.colorbar(sc,cmap=cm.viridis, orientation='horizontal',cax=cax)
+    # cbar.set_label('$k_s$', fontsize=10)
 
     # save and clear the figure
     plt.savefig(DataDirectory+fname_prefix+'_SA_all.png', dpi=300, transparent=True)
     plt.clf()
     plt.cla()
     plt.close()
+    print("DONE")
 
 def PlotUniqueStreamsWithLength(DataDirectory, OutDirectory, fname_prefix, step=2, slope_window_size=25):
     """
@@ -472,10 +480,14 @@ def PlotTrunkChannel(DataDirectory, fname_prefix):
     trunk_src = df.loc[df['distance_from_outlet'].idxmax()]['id']
 
     this_df = df[df['id'] == trunk_src]
-    ax.grid(color='0.8', linestyle='--', which='major')
-    ax.plot(this_df['distance_from_outlet'], this_df['elevation'], c='k')
+    dist_from_outlet = this_df['distance_from_outlet'].values
+    max_dist = np.max(dist_from_outlet)
+    dist_from_source = abs(dist_from_outlet - max_dist)
 
-    ax.set_xlabel('Distance from outlet (m)', fontsize=14)
+    ax.grid(color='0.8', linestyle='--', which='major')
+    ax.plot(dist_from_source, this_df['elevation'], c='k')
+    print(this_df['elevation'])
+    ax.set_xlabel('Distance from source (m)', fontsize=14)
     ax.set_ylabel('Elevation (m)', fontsize=14)
     #ax.set_xlim(0,2500)
     ax.set_ylim(0,40)
@@ -625,8 +637,8 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
         this_df = master_df[master_df['cluster_id'] == cl]
         print("Cluster {}, median gradient = {}".format(cl, this_df['mean_slope'].median()))
         print("Cluster {}, IQR = {}".format(cl, stats.iqr(this_df['mean_slope'])))
-        print("Cluster {}, median relief =  {}".format(cl, this_df['roughness'].median()))
-        print("Cluster {}, IQR = {}".format(cl, stats.iqr(this_df['roughness'])))
+        print("Cluster {}, median relief =  {}".format(cl, this_df['relief'].median()))
+        print("Cluster {}, IQR = {}".format(cl, stats.iqr(this_df['relief'])))
     print("========================================")
 
     # Do some stats, yo
@@ -639,11 +651,11 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     print(d, p)
     ks_dict[0] = [d, p]
     # slope
-    lists = master_df.groupby('cluster_id')['roughness'].apply(np.asarray)
+    lists = master_df.groupby('cluster_id')['relief'].apply(np.asarray)
     d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     print(d, p)
     ks_dict[1] = [d, p]
-    # veg_height
+    # # veg_height
     # lists = master_df.groupby('cluster_id')['veg_height'].apply(np.asarray)
     # d, p = stats.ks_2samp(lists.iloc[0], lists.iloc[1])
     # print(d, p)
@@ -665,8 +677,8 @@ def MakeCatchmentMetricsBoxPlot(DataDirectory, OutDirectory, fname_prefix, strea
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
-    col_keys = ['mean_slope', 'roughness']
-    labels = ['Local gradient (m/m)', 'Local relief (m)']
+    col_keys = ['mean_slope', 'relief']
+    labels = ['Local gradient (m/m)', 'Catchment relief (m)']
     for i, this_ax in enumerate(axes):
         this_ax.set_ylabel(labels[i])
         this_ax.set_xlabel('')
@@ -738,9 +750,6 @@ def MakeSlopeAreaPlotFixedConcavity(DataDirectory, fname_prefix, theta=0.45):
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=0.9,top=0.9)
     ax = fig.add_subplot(gs[5:100,10:95])
 
-    # first - just plot all of the slope-area data
-    ax.scatter(df['drainage_area'], df['slope'], s=2, c='k')
-
     # now force a fit of ks based on this concavity
     area = df['drainage_area'].values
     slope = df['slope'].values
@@ -749,6 +758,9 @@ def MakeSlopeAreaPlotFixedConcavity(DataDirectory, fname_prefix, theta=0.45):
 
     ksn = slope/(area**(-theta))
     print(ksn)
+
+    # first - just plot all of the slope-area data
+    ax.scatter(df['drainage_area'], df['slope'], c=ksn, s=2)
 
     ax.set_xscale('log')
     ax.set_yscale('log')

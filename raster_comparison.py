@@ -227,6 +227,8 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
     labels for the different units, which must be the same length as the number of lithology codes.
     If none is passed then just use the integer values for labelling.
     """
+    from scipy import stats
+
     # read in the raster
     raster_ext = '.bil'
     this_raster = IO.ReadRasterArrayBlocks(DataDirectory+raster_name)
@@ -274,6 +276,17 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
     plt.xticks(range(1, len(labels) + 1), labels)
     plt.ylabel('$k_{sn}$')
 
+    # get the medians for plotting as an upper label
+    medians = []
+    print("========SOME KSN STATISTICS=========")
+    for key, value in data.items():
+        print("Key {}, median ksn = {}".format(key, np.median(value)))
+        medians.append(np.median(value))
+        print("Key {}, IQR = {}".format(key, stats.iqr(value)))
+    print("========================================")
+    pos = np.arange(len(labels)) + 1
+    upperLabels = [str(np.round(s, 2)) for s in medians]
+
     # change the colours for each lithology
     colors=['#60609fff', '#fdbb7fff', '#935353ff', '#f07b72ff']
     for patch, color in zip(box['boxes'], colors):
@@ -291,13 +304,35 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
         flier.set_markerfacecolor(color)
         flier.set_markersize(2)
 
+    # for tick, label in zip(range(len(labels)), ax.get_xticklabels()):
+    #     k = tick % 2
+    #     ax.text(pos[tick], top - (top*0.05), upperLabels[tick],
+    #              horizontalalignment='center', color=colors[k])
+
     ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
+    plt.title('Boxplots of $k_{sn}$ by lithology')
     plt.savefig(DataDirectory+fname_prefix+'_boxplot_lith_ksn.png', dpi=300, transparent=True)
     plt.clf()
 
 
 
-DataDirectory = '/home/fiona/pCloudDrive/Data_for_papers/river_clusters/Pozo/'
+    # Do some stats, yo
+    # KS test to see if we can distinguish the distributions at a confidence level of p = 0.05
+    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.kstest.html
+    # relief
+    keys = list(data.keys())
+    values = list(data.values())
+    k=0
+    for i in range(len(keys)-1):
+        for j in range(i+1, len(keys)):
+            print("KS test between {} and {}".format(keys[i], keys[j]))
+            d, p = stats.ks_2samp(values[i], values[j])
+            print(d, p)
+            k += 1
+
+
+
+DataDirectory = '/home/clubb/pCloudDrive/Data_for_papers/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM_basin_208'
 raster_name = 'pozo_geol_WGS84_reclass.tif'
