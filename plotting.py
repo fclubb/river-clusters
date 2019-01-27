@@ -296,8 +296,8 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
         # ax[i].text(0.15, 0.1,'Cluster {}'.format(int(cl)),horizontalalignment='center',verticalalignment='center',transform = ax[i].transAxes,fontsize=12)
         ax[i].set_xscale('log')
         ax[i].set_yscale('log')
-        ax[i].set_xlim(area_t-300,)
-        #ax[i].set_ylim(0.001, 1)
+        ax[i].set_xlim(area_t-300,10000000)
+        ax[i].set_ylim(0.01, 1)
         ax[i].set_title('Cluster {}: $k_s$ = {} $\pm$ {}; $\\theta$ = {} $\pm$ {}'.format(int(cl), round(intercept,2), round(intercept_err,2), round(abs(gradient),2), round(abs(gradient_err), 2)), fontsize=12)
 
     # set axis labels

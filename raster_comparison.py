@@ -274,7 +274,7 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
     print(labels)
     box = plt.boxplot(dict, patch_artist=True)
     plt.xticks(range(1, len(labels) + 1), labels)
-    plt.ylabel('$k_{sn}$')
+    plt.ylabel('$k_{sn}$', fontsize=14)
 
     # get the medians for plotting as an upper label
     medians = []
@@ -310,7 +310,7 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
     #              horizontalalignment='center', color=colors[k])
 
     ax.grid(color='0.8', linestyle='--', which='major', zorder=1)
-    plt.title('Boxplots of $k_{sn}$ by lithology')
+    plt.title('Boxplots of $k_{sn}$ by lithology', fontsize=14)
     plt.savefig(DataDirectory+fname_prefix+'_boxplot_lith_ksn.png', dpi=300, transparent=True)
     plt.clf()
 
@@ -332,7 +332,7 @@ def MakeBoxPlotsKsnLithology(DataDirectory, fname_prefix, raster_name, theta=0.4
 
 
 
-DataDirectory = '/home/clubb/pCloudDrive/Data_for_papers/river_clusters/Pozo/'
+DataDirectory = '/home/fiona/pCloudDrive/Data_for_papers/river_clusters/Pozo/'
 OutDirectory = DataDirectory+'threshold_0/'
 fname_prefix = 'Pozo_DTM_basin_208'
 raster_name = 'pozo_geol_WGS84_reclass.tif'
