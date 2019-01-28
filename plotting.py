@@ -246,7 +246,14 @@ def PlotSlopeAreaAllProfiles(DataDirectory, OutDirectory, fname_prefix, stream_o
 
         # calculate the channel steepness
         area = filter_df['drainage_area'].values
+
         med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(filter_df['slope'], area, nbins=nbins)
+
+        # only for Bitterroot 3rd order 
+        # if i == 0:
+        #     fluvial_df = filter_df[filter_df['drainage_area'] > 100000]
+        #     area = fluvial_df['drainage_area'].values
+        #     med_slopes, lower_per, upper_per, bin_centres, _ = bin_slope_area_data(fluvial_df['slope'], area, nbins=nbins)
 
         # nan checking
         bin_centres = [x for i, x in enumerate(bin_centres) if not np.isnan(med_slopes[i])]
