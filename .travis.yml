@@ -1,7 +1,7 @@
 language: python
 os:
   - linux
-  - osx
+#  - osx Travis at the moment doesn't support python on MacOS.
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "3.6"
