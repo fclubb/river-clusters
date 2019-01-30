@@ -28,13 +28,13 @@ def print_welcome():
     print("If you don't do this I will assume the data is in the same directory as this script.")
     print("You also need the -fname flag which will give the prefix of the raster files.")
     print("For help type:")
-    print("   python plot_river_clusters.py -h\n")
+    print("   python cluster-river-profiles.py -h\n")
     print("=======================================================================\n\n ")
 
 if __name__ == '__main__':
 
     # If there are no arguments, send to the welcome screen
-    if not len(sys.argv) > 1:
+    if (len(sys.argv) < 1):
         full_paramfile = print_welcome()
         sys.exit()
 
@@ -54,13 +54,16 @@ if __name__ == '__main__':
     parser.add_argument("-so", "--stream_order", type=int, help="The stream order that you wish to cluster over. Default is 1.", default=1)
     parser.add_argument("-zmax", "--maximum_elevation_for_plotting", type=float, default = 100, help="This is the maximum elevation in the colourbar of the landscape plot.")
 
+    # Options for slope area analysis for comparison
+    parser.add_argument("-SA", "--slope_area", type=bool, help='Set to true to make slope-area plots', default=False)
+
+    # Options for plotting catchment metrics. You need to have run an additional LSDTopoTools analysis for this
+    parser.add_argument("-CM", "--catchment_metrics", type=bool, default=False, help='Set true to make boxplots of catchment metrics. You need to have run an additional LSDTopoTools analysis for this')
+
     # Options for raster plotting
     parser.add_argument("-shp", "--shp", type=str, help="Pass a shapefile with the geology for plotting. If nothing is passed then we don't make this plot.", default=None)
     parser.add_argument("-field", "--lith_field", type=str, help="The field name from the shapefile which contains the lithology information", default="geol")
     parser.add_argument("-geol", "--geol_raster", type=str, help="Pass a raster with the geology for plotting.")
-
-    # Options for channel steepness analysis for comparison
-    parser.add_argument("-SA", "--slope_area", type=bool, help='Set to true to make slope-area plots', default=False)
 
     # In case you want to switch the colours. Only works for a two cluster case
     parser.add_argument("-sc", "--switch_colours", type=bool, help="Set to true to switch the colours. Only works for a two cluster case", default=False)
@@ -109,10 +112,8 @@ if __name__ == '__main__':
     # slope-area plotting if required
     if args.slope_area:
         pl.PlotSlopeArea(DataDirectory, args.fname_prefix)
-        #pl.MakeSlopeAreaPlotFixedConcavity(DataDirectory, args.fname_prefix, theta=0.45)
-        #rpl.PlotKsnFromSlopeArea(DataDirectory, args.fname_prefix, theta=0.45)
 
-    #pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
+    pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
 
     # get the profiles for the chosen stream order
     new_df = cl.GetProfilesByStreamOrder(DataDirectory, args.fname_prefix, df, args.step, args.slope_window, args.stream_order)
@@ -124,6 +125,9 @@ if __name__ == '__main__':
     # do the clustering. We will do this at two threshold levels for the cutoff point.
     thr_levels = [0,1]
     for i in thr_levels:
+        print("========================================================")
+        print("Running the clustering with threshold level {}".format(i))
+        print("========================================================")
         new_dir = DataDirectory+'threshold_{}/'.format(str(i))
         if not os.path.isdir(new_dir):
              os.makedirs(new_dir)
@@ -134,14 +138,14 @@ if __name__ == '__main__':
         pl.PlotProfilesByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         #rpl.PlotElevationWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         rpl.PlotHillshadewithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        if args.shp:
+        if (args.shp == True):
             rpl.PlotLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.shp, args.lith_field)
-        if args.geol_raster:
+        if (args.geol_raster == True):
             rpl.PlotRasterLithologyWithClusters(DataDirectory, new_dir, args.fname_prefix, args.stream_order, args.geol_raster)
         pl.PlotSlopeAreaAllProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order, orientation='vertical', nbins=10)
         pl.PlotMedianProfiles(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
         pl.MakeBoxPlotByCluster(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
-        pl.PlotTrunkChannel(DataDirectory, args.fname_prefix)
-        # pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
+        if (args.catchment_metrics == True):
+            pl.MakeCatchmentMetricsBoxPlot(DataDirectory, new_dir, args.fname_prefix, args.stream_order)
 
     print('Enjoy your clusters, pal')

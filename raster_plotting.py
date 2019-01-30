@@ -40,7 +40,7 @@ def PlotElevationWithClusters(DataDirectory, OutDirectory, fname_prefix, stream_
 
     Author: FJC
     """
-
+    print("I'm plotting the elevation with channels coloured by cluster")
     df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
     cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
 
@@ -88,6 +88,8 @@ def PlotHillshadewithClusters(DataDirectory, OutDirectory, fname_prefix,stream_o
         """
         import LSDPlottingTools as LSDP
         from LSDMapFigure.PlottingRaster import MapFigure
+
+        print("I'm plotting a shaded relief map with the channels coloured by cluster")
 
         df = pd.read_csv(DataDirectory+fname_prefix+'_all_tribs.csv')
         cluster_df = pd.read_csv(OutDirectory+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order))
