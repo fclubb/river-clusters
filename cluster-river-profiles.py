@@ -7,8 +7,8 @@
 #---------------------------------------------------------------------#
 
 # setting backend to run on server
-#import matplotlib
-#matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 import os
 import sys
 import pandas as pd
